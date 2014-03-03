@@ -1,0 +1,13 @@
+@HD	VN:1.0	SO:unsorted
+@SQ	SN:chr1	LN:8000
+@PG	ID:unit_test	VN:0.1	CL:"unit test fabricated sam file"
+read_1	0	chr1	250	255	50M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NM:i:0
+read_2	0	chr1	750	255	50M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NM:i:0
+read_3	0	chr1	1700	255	50M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NM:i:0
+read_4	0	chr1	2600	255	50M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NM:i:0
+read_5	0	chr1	6500	255	50M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NM:i:0
+read_6	0	chr1	7700	255	50M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NM:i:0
+read_7	16	chr1	300	255	50M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NM:i:0
+read_8	16	chr1	2900	255	50M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NM:i:0
+read_9	16	chr1	4000	255	50M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NM:i:0
+read_10	16	chr1	5300	255	50M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NM:i:0

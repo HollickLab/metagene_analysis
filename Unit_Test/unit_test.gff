@@ -1,0 +1,5 @@
+# Unit-test GFF file for metagene_windows.pl
+# Created 140218 - Joy-El Talbot
+# Updated 140218 - Joy-El Talbot
+1	test	gene	500	2500	.	+	.	ID=Gene1;Name=Gene1
+1	test	gene	2000	6000	.	-	.	ID=Gene2;Name=Gene2
