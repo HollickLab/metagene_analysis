@@ -102,7 +102,7 @@ def get_chromosome_sizes(bamfile):
     
     return chromosome_sizes
 
-def get_chromosome_conversions(tabfile):
+def get_chromosome_conversions(tabfile, bam_chromosomes):
     '''Import TAB delimited conversion table for the chromosome names in the 
     feature file (column 0) and in the alignment file (column 1).  Return said
     table as a dictionary with the feature file chromosome names as keys and the 
@@ -112,15 +112,19 @@ def get_chromosome_conversions(tabfile):
     
     conversion_table = {}
     
-    infile = open(tabfile)
+    if arguments.chromosome_names:
+        infile = open(tabfile)
     
-    rows = infile.read().strip().split("\n")
-    for r in rows:
-        if r[0] != "#": # don't process comments
-            row_parts = r.split("\t")
-            conversion_table[row_parts[0]] = row_parts[1]
+        rows = infile.read().strip().split("\n")
+        for r in rows:
+            if r[0] != "#": # don't process comments
+                row_parts = r.split("\t")
+                conversion_table[row_parts[0]] = row_parts[1]
     
-    infile.close()
+        infile.close()
+    else:
+        for c in bam_chromosomes:
+            conversion_table[c] = c
     
     return conversion_table
      
@@ -134,14 +138,9 @@ if __name__ == "__main__":
     #print "Current chromosomes: \n{}".format(chromosomes)
     
     # create chromosome conversion dictionary for GFF to BAM
-    if arguments.chromosome_names:
-        chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names)
-    else:
-        # create a dummy table with the chromosome names from the BAM file
-        chromosome_conversion_table = {}
-        for c in chromosomes:
-            chromosome_conversion_table[c] = c
-    #print "Current conversion table: \n{}".format(chromosome_conversion_table)
+    chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names, chromosomes.keys())
+    print "Current conversion table: \n{}".format(chromosome_conversion_table)
+    
     
     
    
