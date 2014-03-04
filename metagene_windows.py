@@ -27,7 +27,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 '''
 
-import sys, re, datetime
+import sys, re, datetime, subprocess
 import argparse		# to parse the command line arguments
 
 PROGRAM = "metagene_windows.py"
@@ -71,6 +71,46 @@ see README for full details and examples.''')
     parser.add_argument("-c","--chromosome_names",
                         help = "Chromosome conversion file, if the names are different between alignment and feature files.",
                         metavar = 'TAB')
+    
+    arguments = parser.parse_args()
+    
+    # make sure either start or end but not both are chosen for analysis
+    if arguments.start and arguments.end:
+        sys.exit("You can only analyze the start (-s) or the end (-e) of the gene at one time.")
+    elif not(arguments.start) and not(arguments.end):
+        arguments.start = True
+        print "WARNING: neither start (-s) or end (-e) of feature was chosen for analysis. Analyzing start by default."
                          
-    return parser.parse_args()
-}
+    return arguments
+
+def get_chromosome_sizes(bamfile):
+    '''Uses samtools view -H to get the header information and returns a 
+    dictionary of the chromosome names and sizes.'''
+    
+    chromosome_sizes = {}
+    
+    header = subprocess.check_output(['samtools', 'view', "-H", bamfile]).split("\n")
+    
+    for line in header:
+        if line[0:3] == "@SQ":
+            # parse out chromosome information from @SQ lines
+            # format example (tab-delimited):
+            # @SQ   SN:chromosome_name  LN:chromosome_size
+            line_parts = line.split("\t")
+            chromosome_sizes[line_parts[1][3:]] = int(line_parts[2][3:])
+    
+    return chromosome_sizes
+    
+
+if __name__ == "__main__":
+    arguments = get_arguments(PROGRAM, VERSION, UPDATED)
+    
+    # confirm BAM file and extract chromosome sizes
+    chromosomes = get_chromosome_sizes(arguments.alignment)
+    
+    print chromosomes
+    
+    
+   
+    
+
