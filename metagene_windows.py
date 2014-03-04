@@ -88,7 +88,8 @@ def get_chromosome_sizes(bamfile):
     dictionary of the chromosome names and sizes.'''
     
     chromosome_sizes = {}
-    
+
+##Need to add error handling for subprocess!!    
     header = subprocess.check_output(['samtools', 'view', "-H", bamfile]).split("\n")
     
     for line in header:
@@ -100,15 +101,47 @@ def get_chromosome_sizes(bamfile):
             chromosome_sizes[line_parts[1][3:]] = int(line_parts[2][3:])
     
     return chromosome_sizes
+
+def get_chromosome_conversions(tabfile):
+    '''Import TAB delimited conversion table for the chromosome names in the 
+    feature file (column 0) and in the alignment file (column 1).  Return said
+    table as a dictionary with the feature file chromosome names as keys and the 
+    alignment file chromosome names as values.'''
+
+##Need to add checking of conversion file!!
     
+    conversion_table = {}
+    
+    infile = open(tabfile)
+    
+    rows = infile.read().strip().split("\n")
+    for r in rows:
+        if r[0] != "#": # don't process comments
+            row_parts = r.split("\t")
+            conversion_table[row_parts[0]] = row_parts[1]
+    
+    infile.close()
+    
+    return conversion_table
+     
 
 if __name__ == "__main__":
     arguments = get_arguments(PROGRAM, VERSION, UPDATED)
+    #print "Current arguments: \n{}".format(arguments)
     
     # confirm BAM file and extract chromosome sizes
     chromosomes = get_chromosome_sizes(arguments.alignment)
+    #print "Current chromosomes: \n{}".format(chromosomes)
     
-    print chromosomes
+    # create chromosome conversion dictionary for GFF to BAM
+    if arguments.chromosome_names:
+        chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names)
+    else:
+        # create a dummy table with the chromosome names from the BAM file
+        chromosome_conversion_table = {}
+        for c in chromosomes:
+            chromosome_conversion_table[c] = c
+    #print "Current conversion table: \n{}".format(chromosome_conversion_table)
     
     
    
