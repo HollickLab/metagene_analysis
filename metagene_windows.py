@@ -127,8 +127,44 @@ def get_chromosome_conversions(tabfile, bam_chromosomes):
             conversion_table[c] = c
     
     return conversion_table
-     
 
+def count_reads_around_features(arguments, chromosomes, chromosome_conversion):
+    '''For each feature count the number of alignments (5' most base of each
+    alignment only is counted) at each position {INTERVAL} nucleotides around
+    the reference point-- start {-s} or end {-e} of the feature.
+    
+    Brief note about coordinate systems:
+    The reference position is 0 with + and - {INTERVAL} positions on either side.
+    However, the array storing the data runs from 0 to 2*{INTERVAL} with a length
+    of 2*{INTERVAL} + 1.
+    
+    {INTERVAL} = 5
+    Feature Index: -5 -4 -3 -2 -1  0  1  2  3  4  5    length = 11 
+      Array Index:  0  1  2  3  4  5  6  7  8  9  10   length = 11
+     Genome Index:  10 11 12 13 14 15 16 17 18 19 20   length = 11
+      
+    Therefore: array_index(reference point) = {INTERVAL}
+    and the reference point is the ({INTERVAL} + 1)-ith value in the list
+    
+    More importantly, if the reference point is really 15 (1-based position) then
+    genome_index(start) = genome_index(reference point) - ({INTERVAL} + 1) + 1
+                        = 15 - (5+1) + 1 = 10
+        (treating reference point as end and INTERVAL + 1 as length)
+    genome_index(end)   = genome_index(start) + ({INTERVAL}*2 + 1) - 1
+                        = 10 + (5*2 + 1) - 1 = 20
+        (where the length = {INTERVAL} * 2 + 1 )'''
+    
+    #initialize values for counting
+    counting_array_length = arguments.interval * 2
+    
+    counting_sense = []
+    counting_antisense = []
+    
+    
+    
+    
+    
+    
 if __name__ == "__main__":
     arguments = get_arguments(PROGRAM, VERSION, UPDATED)
     #print "Current arguments: \n{}".format(arguments)
@@ -139,8 +175,10 @@ if __name__ == "__main__":
     
     # create chromosome conversion dictionary for GFF to BAM
     chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names, chromosomes.keys())
-    print "Current conversion table: \n{}".format(chromosome_conversion_table)
+    #print "Current conversion table: \n{}".format(chromosome_conversion_table)
     
+    # tally the windowing
+    count_reads_around_features(arguments, chromosomes, chromosome_conversion_table)
     
     
    
