@@ -1,6 +1,6 @@
 #!/usr/bin/python
-'''metagene_windows.py merges alignments with genomic features to create a 
-"metagene" style summary of coverage over all of the genomic features. Please 
+'''The first step of metagene_analysis, metagene_count.py compiles read abundance
+over genomic features to create the input for metagene_windows.py. Please 
 see README for full details and examples.
 
 Based on Perl code by Karl F. Erhard, Jr Copyright (c) 2011
@@ -30,56 +30,98 @@ THE SOFTWARE.
 import sys, re, datetime, subprocess
 import argparse		# to parse the command line arguments
 
-PROGRAM = "metagene_windows.py"
+PROGRAM = "metagene_count.py"
 VERSION = "0.1.2"
-UPDATED = "140303 JRBT"
+UPDATED = "140325 JRBT"
 
-def get_arguments(program, version, update):
+def metagene_count():
+    '''Chain of command for metagene_count analysis.'''
+    
+    arguments = get_arguments()
+    #print "Current arguments: \n{}".format(arguments)
+    
+    # confirm BAM file and extract chromosome sizes
+    chromosomes = get_chromosome_sizes(arguments.alignment)
+    #print "Current chromosomes: \n{}".format(chromosomes)
+    
+    # create chromosome conversion dictionary for feature (GFF/BED) to alignment (BAM)
+    chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names, chromosomes.keys())
+    #print "Current conversion table: \n{}".format(chromosome_conversion_table)
+    
+    # define the metagene array shape (left padding, start, internal, end, right padding)
+    blank_metagene = define_metagene(arguments.feature_count, arguments.padding, arguments.internal_size)   
+    
+    # for each feature
+    for feature in get_features(arguments.feature):
+        # define metagene array
+        feature_metagene = blank_metagene
+        # define genomic positions
+        feature_region = define_genomic(feature, arguments.padding)
+        
+        for read in get_reads(feature_region):
+            # read = array of genomic positions to tally back to the feature_metagene
+            feature_metagene = add_read(read, feature_metagene)
+            
+        # output feature_metagene          
+   
+    
+    
+    
+def get_arguments():
     '''Collect and parse information from the user's command line arguments.'''
     
     date = datetime.datetime.now().strftime('%y%m%d-%H%M%S')
     
     parser = argparse.ArgumentParser(description=
-    '''metagene_windows.py merges alignments with genomic features to create a 
-"metagene" style summary of coverage over all of the genomic features. Please 
+    '''The first step of metagene_analysis, metagene_count.py compiles read abundance
+over genomic features to create the input for metagene_windows.py. Please 
 see README for full details and examples.''')
 
     parser.add_argument("-v","--version",
                         action = 'version',
-                        version = "{} {}\tUpdated {}".format(program, version, update))
+                        version = "{} {}\tUpdated {}".format(PROGRAM, VERSION, UPDATED))
     parser.add_argument("-a","--alignment",
                         help = "Alignment file, must be an indexed BAM file",
                         metavar = 'BAM',
                         required = True)
     parser.add_argument("-f","--feature",
-                        help = "Feature file, must be a GFF file",
-                        metavar = 'GFF',
+                        help = "Feature file, must be a BED or GFF file",
+                        metavar = 'BED/GFF',
                         required = True)
     parser.add_argument("-o", "--output_prefix",
                         help = "Prefix for output files",
                         default = "{}.metagene.".format(date))
-    parser.add_argument("-e", "--end",
-                        help = "Flag to analyze the end of features.",
-                        action = 'store_true')
-    parser.add_argument("-s", "--start",
-                        help = "Flag to analyze the start of features.",
-                        action = 'store_true')
-    parser.add_argument("-i", "--interval",
-                        help = "Interval around reference position to query, default = 1000",
+    
+    parser.add_argument("--feature_count",
+                        help = "Examine only the start, end or all of a feature",
+                        choices = ['start','end','all'],
+                        default = 'all')                    
+    parser.add_argument("--count_method",
+                        help = "Count the start, end or all of a read",
+                        choices = ['start','end','all'],
+                        default = 'all')
+    
+    parser.add_argument("--padding",
+                        help = "Padding in nt to add around the feature, default = 1000",
                         default = 1000,
-                        type = int)
+                        type = int,
+                        metavar = 'NT')
+    parser.add_argument("--internal_size",
+                        help = "Normalized size of the feature, default = 1000",
+                        default = 1000,
+                        type = int,
+                        metavar = 'NT')
+
     parser.add_argument("-c","--chromosome_names",
-                        help = "Chromosome conversion file, if the names are different between alignment and feature files.",
+                        help = "Chromosome conversion file (feature_chromosome {tab} alignment_chromosome)",
                         metavar = 'TAB')
     
     arguments = parser.parse_args()
     
-    # make sure either start or end but not both are chosen for analysis
-    if arguments.start and arguments.end:
-        sys.exit("You can only analyze the start (-s) or the end (-e) of the gene at one time.")
-    elif not(arguments.start) and not(arguments.end):
-        arguments.start = True
-        print "WARNING: neither start (-s) or end (-e) of feature was chosen for analysis. Analyzing start by default."
+    # adjust internal_size if only the start or end of the feature will be counted
+    if arguments.feature_count != 'all':
+        arguments.interal_size = 1
+    
                          
     return arguments
 
@@ -128,7 +170,12 @@ def get_chromosome_conversions(tabfile, bam_chromosomes):
     
     return conversion_table
 
-def count_reads_around_features(arguments, chromosomes, chromosome_conversion):
+
+
+
+
+
+#def count_reads_around_features(arguments, chromosomes, chromosome_conversion):
     '''For each feature count the number of alignments (5' most base of each
     alignment only is counted) at each position {INTERVAL} nucleotides around
     the reference point-- start {-s} or end {-e} of the feature.
@@ -154,33 +201,12 @@ def count_reads_around_features(arguments, chromosomes, chromosome_conversion):
                         = 10 + (5*2 + 1) - 1 = 20
         (where the length = {INTERVAL} * 2 + 1 )'''
     
-    #initialize values for counting
-    counting_array_length = arguments.interval * 2
-    
-    counting_sense = []
-    counting_antisense = []
-    
-    
-    
-    
-    
+
+ 
+
     
 if __name__ == "__main__":
-    arguments = get_arguments(PROGRAM, VERSION, UPDATED)
-    #print "Current arguments: \n{}".format(arguments)
-    
-    # confirm BAM file and extract chromosome sizes
-    chromosomes = get_chromosome_sizes(arguments.alignment)
-    #print "Current chromosomes: \n{}".format(chromosomes)
-    
-    # create chromosome conversion dictionary for GFF to BAM
-    chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names, chromosomes.keys())
-    #print "Current conversion table: \n{}".format(chromosome_conversion_table)
-    
-    # tally the windowing
-    count_reads_around_features(arguments, chromosomes, chromosome_conversion_table)
-    
-    
+    metagene_count()    
    
     
 
