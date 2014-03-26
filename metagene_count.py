@@ -34,6 +34,78 @@ PROGRAM = "metagene_count.py"
 VERSION = "0.1.2"
 UPDATED = "140325 JRBT"
 
+class Error(Exception):
+    pass
+
+##TODO fix error handling for MetageneErrors: print error and exit!
+class MetageneError(Error):
+    '''For illegal/illogical metagene attributes.'''
+    def __init__(self, obj, message):
+        self.obj = obj
+        self.message = message
+    
+    def __str__(self):
+        return "MetageneError: {}".format(self.message)
+
+
+class Metagene(object):
+    '''Feature defined by an interval of interest and padding around said interval (will be 0-based). Regardless of padding side (left or right), negative padding values will shorten the interval, positive padding values will extend the interval. Minimum metagene length is 1.'''
+
+    ##TODO add functionality for negative paddings!!
+    # restrict attributes for each instance
+    __slots__ = ['padding_left','interval','padding_right', 'length']
+    
+    def __init__(self, interval, padding_left, padding_right):
+        '''Initiate lengths from the interval and padding.'''
+        
+        # confirm interval is INT > 0
+        try: 
+            interval = int(interval)
+            if interval < 1:
+                raise MetageneError(interval, "Minimum interval length is 1.")
+        except ValueError:
+            raise MetageneError(interval, "Interval must be an integer greater than zero")
+        except MetageneError as m:
+            print m
+        
+        # confirm paddings are INTs
+        try: 
+            padding_left = int(padding_left)
+            padding_right = int(padding_right)
+            if padding_left < 0 or padding_right < 0:
+                raise MetageneError((padding_left, padding_right), "Padding values must be positive")
+        except ValueError:
+            raise MetageneError((padding_left, padding_right), "Padding lengths must be integers")
+        except MetageneError as m:
+            print m
+        
+        # confirm resulting metagene has at least a length of 1  
+        try:
+            length = interval + padding_left + padding_right  
+            if length < 1:
+                raise MetageneError(length, "Invalid final length to metagene (interval + padding_left + padding_right = {})".format(length))
+        except MetageneError as m:
+            print m
+            
+        # everything checks out; store the object
+        self.interval = interval
+        self.padding_left = padding_left
+        self.padding_right = padding_right
+        self.length = length
+    # end __init__ function
+    
+    def get_interval_start(self):
+        return (self.padding_left)
+    
+    def get_interval_end(self):
+        return (self.padding_left + self.interval - 1)
+
+# end Metagene class
+
+
+    
+        
+
 def metagene_count():
     '''Chain of command for metagene_count analysis.'''
     
@@ -45,16 +117,22 @@ def metagene_count():
     #print "Current chromosomes: \n{}".format(chromosomes)
     
     # create chromosome conversion dictionary for feature (GFF/BED) to alignment (BAM)
-    chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names, chromosomes.keys())
+    if arguments.chromosome_names != "None":
+        chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names, chromosomes.keys())
     #print "Current conversion table: \n{}".format(chromosome_conversion_table)
     
     # define the metagene array shape (left padding, start, internal, end, right padding)
-    blank_metagene = define_metagene(arguments.feature_count, arguments.padding, arguments.internal_size)   
+    # metagene = padding ---- internal region ---- padding 
+    metagene = Metagene(arguments.interval_size, arguments.padding, arguments.padding)
     
-    # for each feature
+    print metagene.padding_left, metagene.interval, metagene.padding_right, metagene.length
+    print metagene.get_interval_start()
+    print metagene.get_interval_end()
+       
+        # for each feature
     for feature in get_features(arguments.feature):
-        # define metagene array
-        feature_metagene = blank_metagene
+        # create an empty metagene
+        
         # define genomic positions
         feature_region = define_genomic(feature, arguments.padding)
         
@@ -106,7 +184,7 @@ see README for full details and examples.''')
                         default = 1000,
                         type = int,
                         metavar = 'NT')
-    parser.add_argument("--internal_size",
+    parser.add_argument("--interval_size",
                         help = "Normalized size of the feature, default = 1000",
                         default = 1000,
                         type = int,
@@ -114,7 +192,8 @@ see README for full details and examples.''')
 
     parser.add_argument("-c","--chromosome_names",
                         help = "Chromosome conversion file (feature_chromosome {tab} alignment_chromosome)",
-                        metavar = 'TAB')
+                        metavar = 'TAB',
+                        default = "None")
     
     arguments = parser.parse_args()
     
