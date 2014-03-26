@@ -53,9 +53,9 @@ class Metagene(object):
 
     ##TODO add functionality for negative paddings!!
     # restrict attributes for each instance
-    __slots__ = ['padding_left','interval','padding_right', 'length']
+    __slots__ = ['padding_upstream','feature_interval','padding_downstream', 'length']
     
-    def __init__(self, interval, padding_left, padding_right):
+    def __init__(self, interval, padding_upstream, padding_downstream):
         '''Initiate lengths from the interval and padding.'''
         
         # confirm interval is INT > 0
@@ -65,45 +65,124 @@ class Metagene(object):
                 raise MetageneError(interval, "Minimum interval length is 1.")
         except ValueError:
             raise MetageneError(interval, "Interval must be an integer greater than zero")
-        except MetageneError as m:
-            print m
+
         
         # confirm paddings are INTs
         try: 
-            padding_left = int(padding_left)
-            padding_right = int(padding_right)
-            if padding_left < 0 or padding_right < 0:
-                raise MetageneError((padding_left, padding_right), "Padding values must be positive")
+            padding_upstream = int(padding_upstream)
+            padding_downstream = int(padding_downstream)
+            if padding_upstream < 0 or padding_downstream < 0:
+                raise MetageneError((padding_upstream, padding_downstream), "Padding values must be positive")
         except ValueError:
-            raise MetageneError((padding_left, padding_right), "Padding lengths must be integers")
-        except MetageneError as m:
-            print m
+            raise MetageneError((padding_upstream, padding_downstream), "Padding lengths must be integers")
+
         
         # confirm resulting metagene has at least a length of 1  
-        try:
-            length = interval + padding_left + padding_right  
-            if length < 1:
-                raise MetageneError(length, "Invalid final length to metagene (interval + padding_left + padding_right = {})".format(length))
-        except MetageneError as m:
-            print m
+        length = interval + padding_upstream + padding_downstream  
+        if length < 1:
+            raise MetageneError(length, "Invalid final length to metagene (interval + padding_left + padding_right = {})".format(length))
+
             
         # everything checks out; store the object
-        self.interval = interval
-        self.padding_left = padding_left
-        self.padding_right = padding_right
+        self.feature_interval = interval
+        self.padding_upstream = padding_upstream
+        self.padding_downstream = padding_downstream
         self.length = length
     # end __init__ function
     
     def get_interval_start(self):
-        return (self.padding_left)
+        return (self.padding_upstream)
     
     def get_interval_end(self):
-        return (self.padding_left + self.interval - 1)
+        return (self.padding_upstream + self.feature_interval - 1)
 
 # end Metagene class
 
-
+class Feature(Metagene):
+    '''Defines genomic features in array format analogous to metagene with padding around the interval of interest (genomic feature).'''
     
+    __slots__ = ['name', 'chromosome', 'start', 'end', 'strand', 'shrink_factor']
+    # inherits padding_upstream, padding_downstream, length, and interval from Metagene
+    
+    def __init__(self, metagene_object, name, chromosome, start, end, strand):
+        '''Once defined here, the start and end represent the true start and end of the feature.  Therefore, if a - strand (Crick strand) feature the start will be larger than the end.''' 
+        self.name = name
+        self.chromosome = chromosome
+        self.strand = strand
+        self.length = end - start + 1 # calculate before switching start and end values
+        
+        if strand == "-":
+            self.start = int(end) # 0-based
+            self.end = int(start) # 0-based
+        else:
+            self.start = int(start)
+            self.end = int(end)
+        
+        self.shrink_factor = self.length / metagene_object.interval
+        
+        self.padding_upstream = metagene_object.padding_upstream
+        self.padding_downstream = metagene_object.padding_downstream
+    # end __init__ function
+    
+    def define_region(self):
+        '''Return position interval for samtools view (chromosome: start-end (1-based))'''
+        if self.strand == "-":
+            # order for samtools must be smaller to larger position
+            return ("{}:{}-{}".format(self.chromosome, region_end(self) + 1, region_start(self) + 1))
+        else:
+            return ("{}:{}-{}".format(self.chromosome, region_start(self) + 1, region_end(self) + 1))
+    
+    def region_start(self):
+        '''Upstream most position including padding'''
+        
+        if self.strand == "-":
+            # calculating end: end = start + length - 1
+            return (self.start + self.padding_upstream - 1)
+        else:
+            # calculating start: start = end - length + 1
+            return (self.start - self.padding_upstream + 1)
+    
+    def region_end(self):
+        '''Downstream most position including padding'''
+        
+        if self.strand == "-":
+            # calculating start: start = end - length + 1
+            return (self.end - self.padding_downstream + 1)
+        else:
+            # calculating end: end = start + length - 1
+            return (self.end + self.padding_downstream + 1)    
+    
+    
+    
+    
+    #******** creating Feature objects from diffent feature file formats (eg BED and GFF) ********#
+    @classmethod
+    def create_from_bed(cls, metagene_object, bed_line, chromosome_conversion):
+        '''Return a Feature object created from the BED line'''
+        
+        bed_parts = bed_line.strip().split("\t")
+        
+        return (Feature(metagene_object, 
+                        bed_parts[3],  # name
+                        chromosome_conversion[bed_parts[0]], # alignment style chromosome name
+                        int(bed_parts[1]), # start 0-based
+                        int(bed_parts[2]) - 1, # end 0-based
+                        bed_parts[5])) # strand
+
+    @classmethod
+    def create_from_gff(cls, metagene_object, gff_line, chromosome_conversion):
+        '''Return a Feature object created from the GFF line'''
+        
+        gff_parts = gff_line.strip().split("\t")
+        
+        return (Feature(metagene_object, 
+                        gff_parts[8],  # name (potentially messy)
+                        chromosome_conversion[gff_parts[0]], # alignment style chromosome name
+                        int(gff_parts[3]) - 1, # start 0-based
+                        int(gff_parts[4]) - 1, # end 0-based
+                        gff_parts[6])) # strand
+# end Feature class    
+
         
 
 def metagene_count():
@@ -118,20 +197,34 @@ def metagene_count():
     
     # create chromosome conversion dictionary for feature (GFF/BED) to alignment (BAM)
     if arguments.chromosome_names != "None":
+        # create dict of 
         chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names, chromosomes.keys())
+    else:
+        # dummy dict of BAM-defined chromosome names in both cases
+        chromosome_conversion_table = {}
+        for c in chromosomes:
+            chromosome_conversion_table[c] = c
+        
     #print "Current conversion table: \n{}".format(chromosome_conversion_table)
     
     # define the metagene array shape (left padding, start, internal, end, right padding)
     # metagene = padding ---- internal region ---- padding 
-    metagene = Metagene(arguments.interval_size, arguments.padding, arguments.padding)
+    try:
+        metagene = Metagene(arguments.interval_size, arguments.padding, arguments.padding)
+    except MetageneError as err:
+        print err
+        sys.exit()
     
-    print metagene.padding_left, metagene.interval, metagene.padding_right, metagene.length
+    # testing metagene object    
+    print metagene.padding_upstream, metagene.feature_interval, metagene.padding_downstream, metagene.length
     print metagene.get_interval_start()
     print metagene.get_interval_end()
-       
-        # for each feature
-    for feature in get_features(arguments.feature):
-        # create an empty metagene
+    
+    feature_format = "gff" # get_format(arguments.feature) 
+      
+    # for each feature
+    for feature_line in read_features(arguments.feature):
+        feature = Feature.create(feature_format, metagene, feature_line, chromosome_conversion_table)# create an empty metagene
         
         # define genomic positions
         feature_region = define_genomic(feature, arguments.padding)
