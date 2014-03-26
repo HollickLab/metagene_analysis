@@ -32,7 +32,7 @@ import argparse		# to parse the command line arguments
 
 PROGRAM = "metagene_count.py"
 VERSION = "0.1.2"
-UPDATED = "140325 JRBT"
+UPDATED = "140326 JRBT"
 
 class Error(Exception):
     pass
@@ -81,6 +81,9 @@ class Metagene(object):
 
     # end __init__ function
     
+    def __str__(self):
+        return "(Upstream--Interval--Downstream) = {}--{}--{} ({})".format(self.padding['Upstream'], self.feature_interval, self.padding['Downstream'], self.length)
+        
     @staticmethod
     def confirm_int(value, name):
         try: 
@@ -154,57 +157,80 @@ class Metagene(object):
 class Feature(Metagene):
     '''Defines genomic features in array format analogous to metagene with padding around the interval of interest (genomic feature).'''
     
-    __slots__ = ['name', 'chromosome', 'start', 'end', 'strand', 'shrink_factor']
-    # inherits padding_upstream, padding_downstream, length, and interval from Metagene
+    __slots__ = ['name', 'chromosome', 'strand', 'shrink_factor','counts_array', 'position_array']
+    # inherits feature_interval, padding, and length from Metagene
     
     def __init__(self, metagene_object, name, chromosome, start, end, strand):
-        '''Once defined here, the start and end represent the true start and end of the feature.  Therefore, if a - strand (Crick strand) feature the start will be larger than the end.''' 
+        '''Define a new feature with an interval (represents feature length), up and downstream padding (defined by metagene_object), and genomic (1-based) start and end positions.
+        
+        Once defined here, the start and end represent the true start and end of the feature.  Therefore, if a - strand (Crick strand) feature the start will be larger than the end.''' 
+        
+        
+        if self.confirm_int(start, "Start") and self.confirm_int(end, "End"):
+            start = int(start)
+            end = int(end)
+            # Define feature-specific metagene where feature_interval respresents 
+            # the length of the feature NOT the length of the final metagene interval
+            Metagene.__init__(self,(end - start + 1), metagene_object.padding['Upstream'], metagene_object.padding['Downstream'])
+            self.shrink_factor = self.feature_interval / float(metagene_object.feature_interval)
+            
+            self.strand = strand
+            # initialize counts array with zeros
+            self.counts_array = []
+            self.position_array = []
+            # go from left-most genomic position to right-most genomic position adding
+            # those values to the position array
+            # + strand:   [10,11,12,13,14,15]
+            # - strand:   [15,14,13,12,11,10] 
+            # so array[0] is always the start and array[-1] is always the end
+            
+            if strand == "-": 
+                region_start = start - self.padding['Downstream'] # start is really end
+                region_end = end + self.padding['Upstream'] # end is really start
+                positions = range(region_start, region_end + 1) # inclusive list
+                positions.reverse()
+            else:
+                region_start = start - self.padding['Upstream'] 
+                region_end = end + self.padding['Downstream'] 
+                positions = range(region_start, region_end + 1) # inclusive list
+                
+            for p in positions: 
+                self.counts_array.append(0)
+                self.position_array.append(p)
+            
         self.name = name
-        self.chromosome = chromosome
-        self.strand = strand
-        self.length = end - start + 1 # calculate before switching start and end values
-        
-        if strand == "-":
-            self.start = int(end) # 0-based
-            self.end = int(start) # 0-based
-        else:
-            self.start = int(start)
-            self.end = int(end)
-        
-        self.shrink_factor = self.length / metagene_object.interval
-        
-        self.padding_upstream = metagene_object.padding_upstream
-        self.padding_downstream = metagene_object.padding_downstream
+        self.chromosome = chromosome           
+
     # end __init__ function
     
-    def define_region(self):
+    def get_chromosome_region(self):
         '''Return position interval for samtools view (chromosome: start-end (1-based))'''
         if self.strand == "-":
             # order for samtools must be smaller to larger position
-            return ("{}:{}-{}".format(self.chromosome, region_end(self) + 1, region_start(self) + 1))
+            return ("{}:{}-{}".format(self.chromosome, self.get_region_end(), self.get_region_start()))
         else:
-            return ("{}:{}-{}".format(self.chromosome, region_start(self) + 1, region_end(self) + 1))
-    
-    def region_start(self):
+            return ("{}:{}-{}".format(self.chromosome, self.get_region_start(), self.get_region_end()))
+            
+    def get_region_start(self):
         '''Upstream most position including padding'''
-        
-        if self.strand == "-":
-            # calculating end: end = start + length - 1
-            return (self.start + self.padding_upstream - 1)
-        else:
-            # calculating start: start = end - length + 1
-            return (self.start - self.padding_upstream + 1)
+        return self.position_array[0]
     
-    def region_end(self):
+    def get_region_end(self):
         '''Downstream most position including padding'''
-        
-        if self.strand == "-":
-            # calculating start: start = end - length + 1
-            return (self.end - self.padding_downstream + 1)
-        else:
-            # calculating end: end = start + length - 1
-            return (self.end + self.padding_downstream + 1)    
+        return self.position_array[-1]
     
+    def in_counts_array(self, genomic_position):
+        if genomic_position in self.position_array:
+            return True
+        else:
+            return False
+            
+    def get_counts_array_index(self, genomic_position):
+        '''Returns the position in the counts_array represented by 1-based genomic position'''
+        if genomic_position in self.position_array:
+            return (self.position_array.index(genomic_position))
+        else:
+            raise MetageneError(genomic_position, "Position is not in the feature metagene counting region")
     
     
     
@@ -218,8 +244,8 @@ class Feature(Metagene):
         return (Feature(metagene_object, 
                         bed_parts[3],  # name
                         chromosome_conversion[bed_parts[0]], # alignment style chromosome name
-                        int(bed_parts[1]), # start 0-based
-                        int(bed_parts[2]) - 1, # end 0-based
+                        int(bed_parts[1]) + 1, # start 1-based
+                        int(bed_parts[2]), # end 1-based
                         bed_parts[5])) # strand
 
     @classmethod
@@ -231,12 +257,57 @@ class Feature(Metagene):
         return (Feature(metagene_object, 
                         gff_parts[8],  # name (potentially messy)
                         chromosome_conversion[gff_parts[0]], # alignment style chromosome name
-                        int(gff_parts[3]) - 1, # start 0-based
-                        int(gff_parts[4]) - 1, # end 0-based
+                        int(gff_parts[3]), # start 1-based
+                        int(gff_parts[4]), # end 1-based
                         gff_parts[6])) # strand
+
+    @staticmethod
+    def test_feature():
+        '''Tests of Feature class'''
+        
+        print "\n**** Testing the Feature class ****\n"
+        
+        metagene = Metagene(10,4,2)
+        chromosome_converter = {"1":"chr1", "2":"chr2"}
+        print "  with Metagene:\t{}".format(metagene)
+        print "  with chromosome conversions:\t{}".format(chromosome_converter)     
+        
+        # create feature from BED line
+        try:
+            bedline = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
+            print "\nwith BED line:\t{}".format(bedline)
+            feature1 = Feature.create_from_bed(metagene, bedline, chromosome_converter)
+            
+        except MetageneError as err:
+            print "  Create Feature from BED line ?\t**** FAILED ****"
+        else:
+            print "  Create Feature from BED line ?\tTRUE"   
+            print "  BEDline feature:\t{}".format(feature1)
+            print "  Positions ({}): {}".format(len(feature1.position_array),feature1.position_array)
+            print "  Chromosome region:\t{}".format(feature1.get_chromosome_region())
+            
+        # create feature from GFF line
+        try:
+            gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",10,39,".","-",".","second")
+            print "\nwith GFF line:\t{}".format(gffline)
+            feature2 = Feature.create_from_gff(metagene, gffline, chromosome_converter)
+            
+        except MetageneError as err:
+            print "  Create Feature from GFF line ?\t**** FAILED ****"
+        else:
+            print "  Create Feature from GFF line ?\tTRUE"   
+            print "  GFFline feature:\t{}".format(feature2)
+            print "  Positions ({}): {}".format(len(feature2.position_array),feature2.position_array)
+            print "  Chromosome region:\t{}".format(feature2.get_chromosome_region())
+       
+       
+        ##TODO finish complete testing of Feature class
+        print "\n##TODO finish complete testing of Feature class\n"
+                
+        print "\n**** End of Testing the Feature class ****\n"
+         
 # end Feature class    
 
-        
 
 def metagene_count():
     '''Chain of command for metagene_count analysis.'''
@@ -432,9 +503,9 @@ def get_chromosome_conversions(tabfile, bam_chromosomes):
     
 if __name__ == "__main__":
     Metagene.test_metagene()
+    Feature.test_feature()
 
-
-    metagene_count()    
+#    metagene_count()    
    
     
 
