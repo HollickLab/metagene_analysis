@@ -232,7 +232,9 @@ class Feature(Metagene):
         else:
             raise MetageneError(genomic_position, "Position is not in the feature metagene counting region")
     
-    
+    ##TODO method to shrink interval to metagene size
+    ##TODO method to print metagene
+    ##TODO method to count in feature
     
     #******** creating Feature objects from diffent feature file formats (eg BED and GFF) ********#
     @classmethod
@@ -308,6 +310,188 @@ class Feature(Metagene):
          
 # end Feature class    
 
+
+class Read():
+    '''Defines positions of a read'''
+    
+    __slots__ = ['chromosome','strand','position_array','abundance','mappings','has_mappings']
+    
+    def __init__(self, chromosome, start, strand, abundance, mappings, positions):
+        if Read.confirm_int(start, "Start"):
+            self.position_array = []
+            
+            self.strand = strand
+            if self.strand == "-":
+                positions.reverse()
+            
+            for p in positions:
+                self.position_array.append(p)
+        
+        self.chromosome = chromosome
+        
+        if Read.confirm_int(abundance, "Abundance") and int(abundance) >= 0:
+            self.abundance = int(abundance)
+        else:
+            raise MetageneError(abundance, "Abundance must be greater than or equal to 0")
+            
+        if mappings == "Unknown":
+            self.has_mappings = False
+            self.mappings = 1
+        elif Read.confirm_int(mappings, "Mappings") and int(mappings) > 0:
+            self.has_mappings = True
+            self.mappings = int(mappings)
+        else:
+            raise MetageneError(mappings, "Mappings must be greater than or equal to 0")
+    
+    # End of __init__
+    
+    @classmethod
+    def build_positions(cls, start, cigar, seq):    
+        '''Parse through a cigar string to return the genomic positions that are
+        covered by the read.  Starts at the left-most 1-based start location'''
+        
+        array = []
+        position = start
+        
+        # sometime the cigar value is "*", in which case assume a perfect match
+        if cigar == "*":
+            for i in len(seq):
+                array.append(position)
+                position += 1
+            return array
+        
+        # cigar_codes adapted using information 
+        # from samtools specs (samtools.github.io/hts-specs/SAMv1.pdf)
+        cigar_codes = { 'M':True, # alignment match (can be either sequence match or mismatch)
+                        'I':False, # insertion to the reference
+                        'D':False, # deletion from the reference
+                        'N':False, # skipped region from the reference
+                        'S':False, # soft clipping (clipped sequences present in SEQ)
+                        'H':False, # hard clipping (clipped sequences NOT present in SEQ)
+                        'P':False, # padding (silent deletion from padded reference)
+                        '=':True, # sequence match
+                        'X':True } # sequence mismatch
+                        
+        advance_position = { 'M':True, # alignment match (can be either sequence match or mismatch)
+                             'I':False, # insertion to the reference
+                             'D':True, # deletion from the reference
+                             'N':True, # skipped region from the reference
+                             'S':False, # soft clipping (clipped sequences present in SEQ) <-- start position at first aligned base (Heng et al 2009 Bioinformatics)
+                             'H':False, # hard clipping (clipped sequences NOT present in SEQ)
+                             'P':True, # padding (silent deletion from padded reference) <-- sort of like a skipped region
+                             '=':True, # sequence match
+                             'X':True } # sequence mismatch
+        
+        nucleotides = re.findall('(\d+)',cigar)
+        codes = re.split('\d+',cigar)[1:]
+
+        # loop through nucleotide values
+        for i in range(len(nucleotides)):
+            # iterate nt times adding 1 to start each time
+            for j in range(int(nucleotides[i])):
+                if cigar_codes[codes[i]]:
+                    array.append(position)
+                if advance_position[codes[i]]:
+                    position += 1
+        return array  
+          
+    # end of build_positions
+    
+    @classmethod
+    def parse_sam_bitwise_flag(cls, decimal_flag):
+        '''Pulls bitwise flags for multiple mapping (bit 0x1), unmapped (bit 0x4), 
+        and reversed sequences (bit 0x10) according to the samtools manual.
+        
+        binary string: .... 0000 0000
+        multi-mapping flag          ^ string[-1]
+        unmapped flag             ^   string[-3]
+        reversed flag          ^      string[-5] (ignoring space)           
+        '''
+        
+        binary_flag = bin(decimal_flag)[2:].zfill(8) # removes "0b" prefix and fills from left out to 8 positions
+        
+        if int(binary_flag[-1]) == 1:
+            multiple = True
+        else:
+            multiple = False
+        
+        if int(binary_flag[-3]) == 1:
+            unmapped = True
+        else:
+            unmapped = False
+        
+        if int(binary_flag[-5]) == 1:
+            reverse = True
+        else:
+            reverse = False
+        
+        return (multiple,unmapped,reverse)
+
+        
+    @classmethod
+    def create_from_sam(cls, sam_line, chromosome_conversion, unique=False):
+        '''Create a Read object from a bamfile line, requires that the chromosome 
+        is in the chromosome_conversion dictionary'''
+        
+        sam_parts = sam_line.split("\t")
+
+        # assign chromosome
+        if sam_parts[2] not in chromosome_conversion.values():
+            raise MetageneError(sam_parts[2], "Read chromosome is not in the analysis set")
+        else:
+            chromosome = sam_parts[2]
+        
+        # parse bitwise flag
+        (multiple_flag, unmapped_flag, reversed_flag) = Read.parse_sam_bitwise_flag(int(sam_parts[1]))
+        
+        if multiple_flag:
+            raise MetageneError(sam_line, "Can not parse sam lines with mapping in multiple segments")
+           
+        # assign mappings
+        if unmapped_flag: # non-mapping read
+            raise MetageneError(sam_line, "Can not create a read for an unmapped sequence")    
+        elif unique:
+            mappings = 1
+        # try to extract mappings from NH:i:## tag
+        else:
+            try:
+                mappings = int(re.search('NH:i:(\d+)', sam_line).group(1))
+            except AttributeError:
+                mappings = "Unknown"
+        
+        # assign abundance either from NA:i:## tag or as 1 (default)
+        try: 
+            abundance = int(re.search('NA:i:(\d+)', sam_line).group(1))
+        except AttributeError:
+            abundance = 1
+           
+        # assign strand and positions
+        if reversed_flag: # Crick or Minus strand
+            strand = "-" 
+        else: # Watson or Plus strand
+            strand = "+"  
+        
+        # assign start as left-most position (1-based)
+        start = int(sam_parts[3])
+        
+        # create genomic positions for read
+        positions = Read.build_positions(start, sam_parts[5], sam_parts[9])
+        
+        return Read(chromosome, start, strand, abundance, mappings, positions)
+    # end of create_from_sam
+    
+    @staticmethod
+    def confirm_int(value, name):
+        try: 
+            if float(value) % 1 == 0:
+                return True
+            else:
+                raise MetageneError(value, "{} ({}) must be an integer".format(name, value))         
+        except ValueError:
+            raise MetageneError(value, "{} ({}) must be an integer".format(name, value))
+    # end of confirm_int       
+            
+            
 
 def metagene_count():
     '''Chain of command for metagene_count analysis.'''
@@ -504,6 +688,11 @@ def get_chromosome_conversions(tabfile, bam_chromosomes):
 if __name__ == "__main__":
     Metagene.test_metagene()
     Feature.test_feature()
+    
+    samline = "read_1	24	chr1	250	255	10M40N20M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NH:i:50  NA:i:10"
+    
+    print Read.create_from_sam(samline,{"1":"chr1"}).strand
+    
 
 #    metagene_count()    
    
