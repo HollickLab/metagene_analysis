@@ -4,7 +4,7 @@ over genomic features to create the input for metagene_windows.py. Please
 see README for full details and examples.
 
 Based on Perl code by Karl F. Erhard, Jr Copyright (c) 2011
-Modified to Python by Joy-El R.B. Talbot Copyright (c) 2014
+Extended and modified to Python by Joy-El R.B. Talbot Copyright (c) 2014
 
 The MIT License (MIT)
 
@@ -53,48 +53,101 @@ class Metagene(object):
 
     ##TODO add functionality for negative paddings!!
     # restrict attributes for each instance
-    __slots__ = ['padding_upstream','feature_interval','padding_downstream', 'length']
+    __slots__ = ['feature_interval','padding', 'length']
     
     def __init__(self, interval, padding_upstream, padding_downstream):
         '''Initiate lengths from the interval and padding.'''
         
-        # confirm interval is INT > 0
-        try: 
-            interval = int(interval)
-            if interval < 1:
-                raise MetageneError(interval, "Minimum interval length is 1.")
-        except ValueError:
-            raise MetageneError(interval, "Interval must be an integer greater than zero")
-
+        # assign interval; must be INT > 0
+        if Metagene.confirm_int(interval, "interval") and int(interval) > 0:
+            self.feature_interval = int(interval)
+        else:
+            raise MetageneError(interval, "Minimum interval length is 1.")
         
-        # confirm paddings are INTs
-        try: 
-            padding_upstream = int(padding_upstream)
-            padding_downstream = int(padding_downstream)
-            if padding_upstream < 0 or padding_downstream < 0:
-                raise MetageneError((padding_upstream, padding_downstream), "Padding values must be positive")
-        except ValueError:
-            raise MetageneError((padding_upstream, padding_downstream), "Padding lengths must be integers")
-
-        
+        # assign padding; must be INT >= 0  
+        self.padding = {'Upstream':0, 'Downstream':0} # set defaults
+        for pad in [(padding_upstream, "Upstream"), (padding_downstream, "Downstream")]:
+            if Metagene.confirm_int(pad[0], "{} Padding".format(pad[1])) and int(pad[0]) >= 0:
+                self.padding[pad[1]] = int(pad[0])
+            else:
+                raise MetageneError(pad[0], "Padding values must be positive")   
+           
         # confirm resulting metagene has at least a length of 1  
-        length = interval + padding_upstream + padding_downstream  
-        if length < 1:
-            raise MetageneError(length, "Invalid final length to metagene (interval + padding_left + padding_right = {})".format(length))
+        self.length = self.feature_interval + self.padding['Upstream'] + self.padding['Downstream']
+        if self.length < 1:
+            raise MetageneError(length, 
+                                "Invalid final length to metagene (interval + \
+                                 upstream padding + downstream padding = {})".format(self.length))
 
-            
-        # everything checks out; store the object
-        self.feature_interval = interval
-        self.padding_upstream = padding_upstream
-        self.padding_downstream = padding_downstream
-        self.length = length
     # end __init__ function
     
-    def get_interval_start(self):
-        return (self.padding_upstream)
-    
-    def get_interval_end(self):
-        return (self.padding_upstream + self.feature_interval - 1)
+    @staticmethod
+    def confirm_int(value, name):
+        try: 
+            if float(value) % 1 == 0:
+                return True
+            else:
+                raise MetageneError(value, "{} ({}) must be an integer".format(name, value))         
+        except ValueError:
+            raise MetageneError(value, "{} ({}) must be an integer".format(name, value))
+    # end of confirm_int
+            
+    @staticmethod
+    def test_metagene():
+        '''Tests of Metagene class'''
+        
+        print "\n**** Testing the Metagene class ****\n"
+        # create a metagene with different up and downstream padding
+        first_metagene = Metagene(10,2,4) # uuiiiiiiiiiidddd = metagene
+        if (first_metagene.length == 16):
+            print "Calculate correct length ?\tTRUE"
+        else:
+            print "Calculate correct length ?\t**** FAILED ****"
+            print "first_metagene.length is {}".format(first_metagene.length)
+        
+        try: 
+            metagene = Metagene(10.2, 4, 4)
+        except MetageneError as err:
+            print "Caught non-integer interval ?\tTRUE"
+            print "\t{}".format(err)
+        else:
+            print "Caught non-integer interval ?\t**** FAILED ****"
+                    
+        try: 
+            metagene = Metagene(0,3,3)
+        except MetageneError as err:
+            print "Caught interval of zero error ?\tTRUE"
+            print "\t{}".format(err)
+        else:
+            print "Caught interval of zero error ?\t**** FAILED ****"
+        
+        try:
+            ##TODO Make it possible to have negative padding!
+            metagene = Metagene(10,-3,-2)
+        except MetageneError as err:
+            print "Caught negative padding error ?\tTRUE"
+            print "\t{}".format(err)
+        else:
+            print "Caught negative padding error ?\t**** FAILED ****"
+        
+        try: 
+            metagene = Metagene(10, 4.3, 4)
+        except MetageneError as err:
+            print "Caught non-integer padding ?\tTRUE"
+            print "\t{}".format(err)
+        else:
+            print "Caught non-integer padding ?\t**** FAILED ****"
+        
+        try: 
+            metagene = Metagene(10, "four", 4)
+        except MetageneError as err:
+            print "Caught non-integer padding ?\tTRUE"
+            print "\t{}".format(err)
+        else:
+            print "Caught non-integer padding ?\t**** FAILED ****"
+                
+        
+        print "\n**** End of Testing the Metagene class ****\n"
 
 # end Metagene class
 
@@ -378,6 +431,9 @@ def get_chromosome_conversions(tabfile, bam_chromosomes):
 
     
 if __name__ == "__main__":
+    Metagene.test_metagene()
+
+
     metagene_count()    
    
     
