@@ -236,6 +236,7 @@ class Feature(Metagene):
     ##TODO method to print metagene
     ##TODO method to count in feature
     
+    
     #******** creating Feature objects from diffent feature file formats (eg BED and GFF) ********#
     @classmethod
     def create_from_bed(cls, metagene_object, bed_line, chromosome_conversion):
@@ -278,8 +279,7 @@ class Feature(Metagene):
         try:
             bedline = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
             print "\nwith BED line:\t{}".format(bedline)
-            feature1 = Feature.create_from_bed(metagene, bedline, chromosome_converter)
-            
+            feature1 = Feature.create_from_bed(metagene, bedline, chromosome_converter)           
         except MetageneError as err:
             print "  Create Feature from BED line ?\t**** FAILED ****"
         else:
@@ -345,6 +345,15 @@ class Read():
     
     # End of __init__
     
+    def __str__(self):
+        return str(self.position_array)
+    
+    def get_start_position(self):
+        return self.position_array[0]
+        
+    def get_end_position(self):
+        return self.position_array[-1]
+        
     @classmethod
     def build_positions(cls, start, cigar, seq):    
         '''Parse through a cigar string to return the genomic positions that are
@@ -355,7 +364,7 @@ class Read():
         
         # sometime the cigar value is "*", in which case assume a perfect match
         if cigar == "*":
-            for i in len(seq):
+            for i in range(len(seq)):
                 array.append(position)
                 position += 1
             return array
@@ -489,9 +498,53 @@ class Read():
                 raise MetageneError(value, "{} ({}) must be an integer".format(name, value))         
         except ValueError:
             raise MetageneError(value, "{} ({}) must be an integer".format(name, value))
-    # end of confirm_int       
+    # end of confirm_int     
+    
+    @staticmethod
+    def test_read():
+        '''Tests of Read class'''
+        
+        print "\n**** Testing the Read class ****\n"
+        
+        chromosome_converter = {"1":"chr1", "2":"chr2"}
+        print "  with chromosome conversions:\t{}\n".format(chromosome_converter)   
+        
+        try:
+            samline1 = "read_1	24	chr1	200	255	3S2M4N3M2X3M	*	0	0	bbbbbbbbbbbbb	bbbbbbbbbbbbb	XA:i:0	MD:Z:40	NH:i:50  NA:i:10"
+            print "with SAM line:\t{}".format(samline1)
+            read1 = Read.create_from_sam(samline1, chromosome_converter)
+        except MetageneError as err:
+            print "Create Read object from SAM line ?\t**** FAILED ****"
+        else:
+            print "Create Read object from SAM line ?\tTRUE"
+            print "  {}".format(read1)
+            print "  Location:\t\t{}:{}-{}".format(read1.chromosome, read1.get_start_position(), read1.get_end_position() )
+            print "  Strand:\t\t{}".format(read1.strand)
+            print "  Abundance:\t\t{}".format(read1.abundance)
+            print "  Number Mappings:\t{}".format(read1.mappings)
+            print
             
-            
+        try:
+            samline1 = "read_1	0	chr1	200	255	*	*	0	0	bbbbbbbbbbbbb	bbbbbbbbbbbbb	XA:i:0	MD:Z:40	NH:i:50  NA:i:10"
+            print "with SAM line:\t{}".format(samline1)
+            read1 = Read.create_from_sam(samline1, chromosome_converter)
+        except MetageneError as err:
+            print "Create Read object from SAM line ?\t**** FAILED ****"
+        else:
+            print "Create Read object from SAM line ?\tTRUE"
+            print "  {}".format(read1)
+            print "  Location:\t\t{}:{}-{}".format(read1.chromosome, read1.get_start_position(), read1.get_end_position() )
+            print "  Strand:\t\t{}".format(read1.strand)
+            print "  Abundance:\t\t{}".format(read1.abundance)
+            print "  Number Mappings:\t{}".format(read1.mappings)
+            print
+                
+        ##TODO finish complete testing of Feature class
+        print "\n##TODO finish complete testing of Read class\n"
+                
+        print "\n**** End of Testing the Read class ****\n"  
+         
+# end of Read class
 
 def metagene_count():
     '''Chain of command for metagene_count analysis.'''
@@ -688,10 +741,9 @@ def get_chromosome_conversions(tabfile, bam_chromosomes):
 if __name__ == "__main__":
     Metagene.test_metagene()
     Feature.test_feature()
+    Read.test_read()
     
-    samline = "read_1	24	chr1	250	255	10M40N20M	*	0	0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	XA:i:0	MD:Z:40	NH:i:50  NA:i:10"
-    
-    print Read.create_from_sam(samline,{"1":"chr1"}).strand
+
     
 
 #    metagene_count()    
