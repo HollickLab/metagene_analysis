@@ -175,8 +175,13 @@ class Feature(Metagene):
             self.shrink_factor = self.feature_interval / float(metagene_object.feature_interval)
             
             self.strand = strand
+            if self.strand != "+" and self.strand != "-":
+                self.strand = "."
+                self.counts_array = { 'unstranded':[] }
+            else:
+                self.counts_array = { 'sense':[], 'antisense':[] }
+            
             # initialize counts array with zeros
-            self.counts_array = []
             self.position_array = []
             # go from left-most genomic position to right-most genomic position adding
             # those values to the position array
@@ -184,7 +189,7 @@ class Feature(Metagene):
             # - strand:   [15,14,13,12,11,10] 
             # so array[0] is always the start and array[-1] is always the end
             
-            if strand == "-": 
+            if self.strand == "-": 
                 region_start = start - self.padding['Downstream'] # start is really end
                 region_end = end + self.padding['Upstream'] # end is really start
                 positions = range(region_start, region_end + 1) # inclusive list
@@ -195,7 +200,8 @@ class Feature(Metagene):
                 positions = range(region_start, region_end + 1) # inclusive list
                 
             for p in positions: 
-                self.counts_array.append(0)
+                for orientation in self.counts_array:
+                    self.counts_array[orientation].append(0)
                 self.position_array.append(p)
             
         self.name = name
@@ -219,23 +225,49 @@ class Feature(Metagene):
         '''Downstream most position including padding'''
         return self.position_array[-1]
     
-    def in_counts_array(self, genomic_position):
-        if genomic_position in self.position_array:
-            return True
-        else:
-            return False
-            
-    def get_counts_array_index(self, genomic_position):
-        '''Returns the position in the counts_array represented by 1-based genomic position'''
-        if genomic_position in self.position_array:
-            return (self.position_array.index(genomic_position))
-        else:
-            raise MetageneError(genomic_position, "Position is not in the feature metagene counting region")
     
     ##TODO method to shrink interval to metagene size
     ##TODO method to print metagene
     ##TODO method to count in feature
-    
+    def count_read(self, read_object, count_method):
+        '''Add a read object to the sense or antisense counts_array. Requires strand
+        options of "+", "-" or "."
+        
+        Only stranded reads (+ or -) can be counted on stranded features.
+        
+        Unstranded Features will count in the + direction, but ignore read strand. '''
+
+        # determine orientation (and if countable)
+        if self.strand == ".":
+            orientation = 'unstranded'
+        elif read_object.strand != ".":
+            if self.strand == read_object.strand:
+                orientation = 'sense'
+            else:
+                orientation = 'antisense'
+        else: 
+            raise MetageneError(read_object.strand, "Can not count unstranded reads on stranded features.")
+        
+        # confirm that they are on the same chromosome
+        if self.chromosome == read_object.chromosome:
+            # get positions from read to potentially count
+            positions_to_count = []
+        
+            if count_method == 'start':
+                positions_to_count.append(read_object.get_start_position())
+            elif count_method == 'end':
+                positions_to_count.append(read_object.get_end_position())
+            elif count_method == 'all':
+                positions_to_count = read_object.position_array
+            else:
+                raise MetageneError(count_method, "Unrecognizable counting method.  Valid options are 'start', 'end', and 'all'")
+        
+            for p in positions_to_count:
+                # make sure it overlaps with the Feature
+                if p in self.position_array:
+                    self.counts_array[orientation][self.position_array.index(p)] += (float(read_object.abundance) / float(read_object.mappings))
+        
+    # end of count_read function        
     
     #******** creating Feature objects from diffent feature file formats (eg BED and GFF) ********#
     @classmethod
@@ -302,12 +334,118 @@ class Feature(Metagene):
             print "  Positions ({}): {}".format(len(feature2.position_array),feature2.position_array)
             print "  Chromosome region:\t{}".format(feature2.get_chromosome_region())
        
-       
+        
+
         ##TODO finish complete testing of Feature class
         print "\n##TODO finish complete testing of Feature class\n"
                 
         print "\n**** End of Testing the Feature class ****\n"
-         
+    
+    @staticmethod
+    def test_counting_methods():
+        '''Specifically test the counting and summary methods (all points after
+        Feature creation).'''
+        
+        metagene = Metagene(10,4,2)
+        chromosome_converter = {"1":"chr1", "2":"chr2"}
+        
+        feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
+        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
+        print "Feature:\t{}".format(feature1.position_array)
+        
+        reads = []
+        reads.append(Read("chr1", "+", 3, 1, [10,11,12,13,14,15,16,17,18]))
+        reads.append(Read("chr1", "-", 1, 2, [23,24,25,26,27,28,29,30,31,32]))
+        reads.append(Read("chr1", "+", 4, 2, [30,31,32,33,34,40,41]))
+        reads.append(Read("chr1", "-", 1, 1, [42,43,44,45,46,47,48,49,50]))
+        reads.append(Read("chr1", "+", 10, 1, [51,52,53,54,55]))
+        reads.append(Read("chr2", "+", 10, 1, [18,19,20,21,22,23,24,25]))
+        
+        # starting count
+        print "Count_method = 'all'"
+        for orientation in feature1.counts_array:
+            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+            
+        for r in reads:
+            print "\nRead:\t{}".format(r.position_array)
+            feature1.count_read(r, 'all') 
+            for orientation in feature1.counts_array:
+                print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+        
+        print "\nCount_method = 'start'"
+        # reset feature1 to fresh (normally the feature is lost after counting)
+        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
+        
+        for r in reads:
+            feature1.count_read(r, 'start') 
+        
+        for orientation in feature1.counts_array:
+            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+        
+        print "\nCount_method = 'end'"
+        # reset feature1 to fresh (normally the feature is lost after counting)
+        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
+        
+        for r in reads:
+            feature1.count_read(r, 'end') 
+        
+        for orientation in feature1.counts_array:
+            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+        
+        try:
+            unstranded_read = Read("chr1", ".", 10, 1, [18,19,20,21,22,23,24,25])
+            feature1.count_read(unstranded_read, 'all')
+        except MetageneError as err:
+            print "Caught unstranded read on stranded count ?\tTRUE"
+            print err
+        else:
+            print "Caught unstranded read on stranded count ?\t**** FAILED ****"
+        
+            
+        # try on feature with out a strand
+        feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"u")
+        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
+        
+        print "\nCount_method = 'all'"
+        for orientation in feature1.counts_array:
+            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+            
+        for r in reads:
+            print "\nRead:\t{}".format(r.position_array)
+            feature1.count_read(r, 'all') 
+            for orientation in feature1.counts_array:
+                print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+        
+        print "\nCount_method = 'start'"
+        # reset feature1 to fresh (normally the feature is lost after counting)
+        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
+        
+        for r in reads:
+            feature1.count_read(r, 'start') 
+        
+        for orientation in feature1.counts_array:
+            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+        
+        print "\nCount_method = 'end'"
+        # reset feature1 to fresh (normally the feature is lost after counting)
+        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
+        
+        for r in reads:
+            feature1.count_read(r, 'end') 
+        
+        for orientation in feature1.counts_array:
+            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+        
+        try:
+            unstranded_read = Read("chr1", ".", 10, 1, [18,19,20,21,22,23,24,25])
+            feature1.count_read(unstranded_read, 'all')
+        except MetageneError as err:
+            print "Allowed unstranded read on unstranded count ?\t**** FAILED ****"
+            print err
+        else:
+            print "Allowed unstranded read on unstranded count ?\tTRUE"
+        
+                 
 # end Feature class    
 
 
@@ -316,16 +454,17 @@ class Read():
     
     __slots__ = ['chromosome','strand','position_array','abundance','mappings','has_mappings']
     
-    def __init__(self, chromosome, start, strand, abundance, mappings, positions):
-        if Read.confirm_int(start, "Start"):
-            self.position_array = []
+    def __init__(self, chromosome, strand, abundance, mappings, positions):
+        self.position_array = []
             
-            self.strand = strand
-            if self.strand == "-":
-                positions.reverse()
+        self.strand = strand
+        if self.strand != "+" and self.strand != "-":
+            self.strand = "."
+        elif self.strand == "-":
+            positions.reverse()
             
-            for p in positions:
-                self.position_array.append(p)
+        for p in positions:
+            self.position_array.append(p)
         
         self.chromosome = chromosome
         
@@ -480,13 +619,10 @@ class Read():
         else: # Watson or Plus strand
             strand = "+"  
         
-        # assign start as left-most position (1-based)
-        start = int(sam_parts[3])
+        # create genomic positions for read (start, cigar_string, sequence)
+        positions = Read.build_positions(int(sam_parts[3]), sam_parts[5], sam_parts[9])
         
-        # create genomic positions for read
-        positions = Read.build_positions(start, sam_parts[5], sam_parts[9])
-        
-        return Read(chromosome, start, strand, abundance, mappings, positions)
+        return Read(chromosome, strand, abundance, mappings, positions)
     # end of create_from_sam
     
     @staticmethod
@@ -743,7 +879,7 @@ if __name__ == "__main__":
     Feature.test_feature()
     Read.test_read()
     
-
+    Feature.test_counting_methods()
     
 
 #    metagene_count()    
