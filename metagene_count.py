@@ -252,7 +252,7 @@ class Feature(Metagene):
                 output_line += ",{0:0.3f}".format(p) # keep 3 decimal places in the outputted float
             for p in metagene_interval_counts:
                 output_line += ",{0:0.3f}".format(p)
-            for pi in downstream_counts:
+            for p in downstream_counts:
                 output_line += ",{0:0.3f}".format(p)
             output_line += "\n"
         
@@ -261,6 +261,7 @@ class Feature(Metagene):
     def adjust_to_metagene(self, feature_array, shrink_factor):
         '''Expand or collapse the counts data from interval_array into a metagene
         array via the given shrink factor.'''
+        # uncomment ## lines to have debugging function
         
         metagene_array = []
         
@@ -268,47 +269,51 @@ class Feature(Metagene):
         metagene_count = 0.0
         remaining_metagene_bin = shrink_factor
         
-        for loop, bin in enumerate(feature_array): # ensure all data is moved to metagene by looping  through entire interval_array
+        ##for loop, bin in enumerate(feature_array): # ensure all data is moved to metagene by looping  through entire interval_array
+        for bin in feature_array: # ensure all data is moved to metagene by looping  through entire interval_array
             # Ideally add in units of 1 (1 bin to 1 metagene_array  position) 
             # unless not possible then start dealing with fractional bins
             
             remaining_feature_bin = 1.0 # reset remaining feature for new bin
             
-            print "\n  Loop {}:".format(loop)
-            print "    Feature Count :\t{}".format(bin)
-            print "    Metagene Count:\t{}".format(metagene_count)
-            print "    Metagene Bin  :\t{}".format(remaining_metagene_bin)
-            print "    Feature Bin   :\t{}".format(remaining_feature_bin)
-            i = 0
+            ##print "\n  Loop {}:".format(loop)
+            ##print "    Feature Count :\t{}".format(bin)
+            ##print "    Metagene Count:\t{}".format(metagene_count)
+            ##print "    Metagene Bin  :\t{}".format(remaining_metagene_bin)
+            ##print "    Feature Bin   :\t{}".format(remaining_feature_bin)
+            ##i = 0
                       
             while remaining_feature_bin > 0:
                 # keeping adding from this bin until its empty
-                i += 1
-                print "    While loop {}:".format(i)
-                print "      Feature Count :\t{}".format(bin)
-                print "      Metagene Count:\t{}".format(metagene_count)
-                print "      Metagene Bin  :\t{}".format(remaining_metagene_bin)
-                print "      Feature Bin   :\t{}".format(remaining_feature_bin)
+                
+                ##i += 1
+                ##print "    While loop {}:".format(i)
+                ##print "      Feature Count :\t{}".format(bin)
+                ##print "      Metagene Count:\t{}".format(metagene_count)
+                ##print "      Metagene Bin  :\t{}".format(remaining_metagene_bin)
+                ##print "      Feature Bin   :\t{}".format(remaining_feature_bin)
                                 
                 if remaining_feature_bin <= remaining_metagene_bin:
-                    print "      Add Remaining Feature Bin:\t{}".format(bin * remaining_feature_bin)    
+                    ##print "      Add Remaining Feature Bin:\t{}".format(bin * remaining_feature_bin)    
+                    
                     # add entire feature to metagene
                     metagene_count += (bin * remaining_feature_bin)
                     # adjust bin counters
                     remaining_metagene_bin -= remaining_feature_bin 
                     remaining_feature_bin = 0
                 else:
-                    print "      Add Remaining Metagene Bin:\t{}".format(bin * remaining_metagene_bin)
+                    ##print "      Add Remaining Metagene Bin:\t{}".format(bin * remaining_metagene_bin)
+                    
                     # add entire remaining_metagene_bin amount of feature to metagene
                     metagene_count += (bin * remaining_metagene_bin)
                     # adjust bin counters
                     remaining_feature_bin -= remaining_metagene_bin
                     remaining_metagene_bin = 0
                 
-                print "Remaining_metagene_bin:\t{}".format(remaining_metagene_bin)                    
+                ##print "Remaining_metagene_bin:\t{}".format(remaining_metagene_bin)                    
                 # check to see if new metagene bin is ready to be added to the metagene_array
                 if remaining_metagene_bin == 0:
-                    print "      Add Count to Metagene Array:\t{}".format(metagene_count)
+                    ##print "      Add Count to Metagene Array:\t{}".format(metagene_count)
                     metagene_array.append(metagene_count)
                     metagene_count = 0.0
                     remaining_metagene_bin = shrink_factor
@@ -317,12 +322,12 @@ class Feature(Metagene):
         
         if metagene_count != 0.0:
             # print out final metagene that was missed
-            print "      Add Count to Metagene Array:\t{}".format(metagene_count)
+            ##print "      Add Count to Metagene Array:\t{}".format(metagene_count)
             metagene_array.append(metagene_count)
             metagene_count = 0.0
                                             
-        print "\n  Final Metagene:\t{}".format(metagene_array)
-   
+        ##print "\n  Final Metagene:\t{}".format(metagene_array)
+        return metagene_array
     
     def count_read(self, read_object, count_method):
         '''Add a read object to the sense or antisense counts_array. Requires strand
@@ -470,6 +475,8 @@ class Feature(Metagene):
             for orientation in feature1.counts_array:
                 print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
         
+        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
+        
         print "\nCount_method = 'start'"
         # reset feature1 to fresh (normally the feature is lost after counting)
         feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
@@ -480,6 +487,8 @@ class Feature(Metagene):
         for orientation in feature1.counts_array:
             print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
         
+        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
+        
         print "\nCount_method = 'end'"
         # reset feature1 to fresh (normally the feature is lost after counting)
         feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
@@ -489,6 +498,8 @@ class Feature(Metagene):
         
         for orientation in feature1.counts_array:
             print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+        
+        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
         
         try:
             unstranded_read = Read("chr1", ".", 10, 1, [18,19,20,21,22,23,24,25])
@@ -514,6 +525,8 @@ class Feature(Metagene):
             for orientation in feature1.counts_array:
                 print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
         
+        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
+        
         print "\nCount_method = 'start'"
         # reset feature1 to fresh (normally the feature is lost after counting)
         feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
@@ -523,6 +536,8 @@ class Feature(Metagene):
         
         for orientation in feature1.counts_array:
             print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+       
+        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
         
         print "\nCount_method = 'end'"
         # reset feature1 to fresh (normally the feature is lost after counting)
@@ -533,6 +548,8 @@ class Feature(Metagene):
         
         for orientation in feature1.counts_array:
             print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+        
+        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
         
         try:
             unstranded_read = Read("chr1", ".", 10, 1, [18,19,20,21,22,23,24,25])
@@ -555,7 +572,7 @@ class Feature(Metagene):
         feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,24,"first",44,"+")
         feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
     
-        feature1.adjust_to_metagene([16,8,24,4], 0.5)
+        print "Resulting Metagene:\t{}".format(feature1.adjust_to_metagene([16,8,24,4], 0.5))
     
         print "  with feature array: [6,8,6,2,4,4,2,4,24,8] collapsing to metagene array of length 4 (shrink = 2.5)"
         metagene = Metagene(4,2,2)
@@ -564,7 +581,7 @@ class Feature(Metagene):
         feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,30,"first",44,"+")
         feature2 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
     
-        feature2.adjust_to_metagene([6,8,6,2,4,4,2,4,24,8], 2.5)
+        print "Resulting Metagene:\t{}".format(feature2.adjust_to_metagene([6,8,6,2,4,4,2,4,24,8], 2.5))
 
         print "\nthe unpretty float math trials:"
         print "  with feature array: [2.5,4,(10.0/3),10,11,7.3,4] collapsing to metagene array of length 4 (shrink = 7/4 = 1.75)"
@@ -574,8 +591,8 @@ class Feature(Metagene):
         feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,27,"first",44,"+")
         feature2 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
     
-        feature2.adjust_to_metagene([2.5,4,(10.0/3),10,11,7.3,4], 1.75)
-        print "  Expected Metagene: [5.500, 9.333, 17.825, 9.475]" # 3 decimal place accuracy
+        print "  Resulting Metagene: {}".format(feature2.adjust_to_metagene([2.5,4,(10.0/3),10,11,7.3,4], 1.75))
+        print "  Expected Metagene:  [5.500, 9.333, 17.825, 9.475]" # 3 decimal place accuracy
         
         print "\nthe unpretty float math trials:"
         print "  with feature array: [2.5,4,(10.0/3),10,11,7.3,4] collapsing to metagene array of length 3 (shrink = 7/3 ~ 2.333)"
@@ -585,12 +602,10 @@ class Feature(Metagene):
         feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,27,"first",44,"+")
         feature2 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
     
-        feature2.adjust_to_metagene([2.5,4,(10.0/3),10,11,7.3,4], (7.0 / 3))
-        print "  Expected Metagene: [7.611, 19.555, 14.967]" # 3 decimal place accuracy
+        print "  Resulting Metagene: {}".format(feature2.adjust_to_metagene([2.5,4,(10.0/3),10,11,7.3,4], (7.0 / 3)))
+        print "  Expected Metagene:  [7.611, 19.555, 14.967]" # 3 decimal place accuracy
     # end of test_adjust_to_metagene_method function
 
-        
-      
                  
 # end Feature class    
 
@@ -879,6 +894,13 @@ Requires:
                         default = 1000,
                         type = int,
                         metavar = 'NT')
+                        
+    parser.add_argument("--extract_abundance",
+                        help = "Extract abundance information from NA:i:## tag in BAM file",
+                        action = 'store_true')
+    parser.add_argument("--extract_mappings",
+                        help = "Extract number of mappings from NH:i:## tag in BAM file (required for hits normalization)",
+                        action = 'store_true')
 
     parser.add_argument("-c","--chromosome_names",
                         help = "Chromosome conversion file (feature_chromosome {tab} alignment_chromosome)",
@@ -886,7 +908,7 @@ Requires:
                         default = "None")
     
     parser.add_argument("--count_splicing",
-                        help = "Count reads as spliced or unspliced (ignores strand)",
+                        help = "Count reads as spliced or unspliced",
                         action = 'store_true')
     
     arguments = parser.parse_args()
@@ -894,8 +916,7 @@ Requires:
     # adjust internal_size if only the start or end of the feature will be counted
     if arguments.feature_count != 'all':
         arguments.interal_size = 1
-    
-                         
+                             
     return arguments
 
 def get_chromosome_sizes(bamfile):
@@ -904,7 +925,7 @@ def get_chromosome_sizes(bamfile):
     
     chromosome_sizes = {}
 
-##Need to add error handling for subprocess!!    
+##TODO: Add error handling for subprocess!!    
     header = subprocess.check_output(['samtools', 'view', "-H", bamfile]).split("\n")
     
     for line in header:
@@ -943,7 +964,12 @@ def get_chromosome_conversions(tabfile, bam_chromosomes):
     
     return conversion_table
 
-
+def has_sam_tag(bamfile, tag):
+    '''Checks for a particular tag in the sam lines.'''
+    
+    header = subprocess.check_output(['samtools', 'view', bamfile]).split("\n")
+    
+    
 def metagene_count():
     '''Chain of command for metagene_count analysis.'''
     ##TODO: finish the flow of command
@@ -954,6 +980,13 @@ def metagene_count():
     chromosomes = get_chromosome_sizes(arguments.alignment)
     #print "Current chromosomes: \n{}".format(chromosomes)
     
+    # if extract_abundance or extract_mappings confirm that appropriate tags exist
+    if arguments.extract_abundance and not has_sam_tag(arguments.alignment, "NA:i:\d+"):
+        raise MetageneError(arguments.extract_abundance, "Your alignment file does not have the required NA:i:## abundance tags\nAdjust the alignment file or remove the --extract_abundance tag to treat each read as an abundance of 1")
+    
+    if arguments.extract_mappings and not has_sam_tag(arguments.alignment, "NH:i:\d+"):
+        raise MetageneError(arguments.extract_mappings, "Your alignment file does not have the required NH:i:## mappings tags\nAdjust the alignment file or remove the --extract_mappings tag to treat each read as unique and remove hits-normalization")
+        
     # create chromosome conversion dictionary for feature (GFF/BED) to alignment (BAM)
     if arguments.chromosome_names != "None":
         # create dict of 
@@ -997,7 +1030,7 @@ def metagene_count():
 
     
 if __name__ == "__main__":
-    get_arguments()
+    # testing classes and methods
     Metagene.test_metagene()
     Feature.test_feature()
     Read.test_read()
@@ -1005,7 +1038,8 @@ if __name__ == "__main__":
     Feature.test_counting_methods()
     Feature.test_adjust_to_metagene_method()
     
-#    metagene_count()    
+    # actual run...
+    #metagene_count()    
    
     
 
