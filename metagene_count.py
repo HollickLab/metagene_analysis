@@ -115,16 +115,14 @@ class Metagene(object):
         try: 
             metagene = Metagene(10.2, 4, 4)
         except MetageneError as err:
-            print "Caught non-integer interval ?\tTRUE"
-            print "\t{}".format(err)
+            print "Caught non-integer interval ?\tTRUE\t\t{}".format(err)
         else:
             print "Caught non-integer interval ?\t**** FAILED ****"
                     
         try: 
             metagene = Metagene(0,3,3)
         except MetageneError as err:
-            print "Caught interval of zero error ?\tTRUE"
-            print "\t{}".format(err)
+            print "Caught interval of zero error ?\tTRUE\t\t{}".format(err)
         else:
             print "Caught interval of zero error ?\t**** FAILED ****"
         
@@ -132,24 +130,21 @@ class Metagene(object):
             ##TODO Make it possible to have negative padding!
             metagene = Metagene(10,-3,-2)
         except MetageneError as err:
-            print "Caught negative padding error ?\tTRUE"
-            print "\t{}".format(err)
+            print "Caught negative padding error ?\tTRUE\t\t{}".format(err)
         else:
             print "Caught negative padding error ?\t**** FAILED ****"
         
         try: 
             metagene = Metagene(10, 4.3, 4)
         except MetageneError as err:
-            print "Caught non-integer padding ?\tTRUE"
-            print "\t{}".format(err)
+            print "Caught non-integer padding ?\tTRUE\t\t{}".format(err)
         else:
             print "Caught non-integer padding ?\t**** FAILED ****"
         
         try: 
             metagene = Metagene(10, "four", 4)
         except MetageneError as err:
-            print "Caught non-integer padding ?\tTRUE"
-            print "\t{}".format(err)
+            print "Caught non-integer padding ?\tTRUE\t\t{}".format(err)
         else:
             print "Caught non-integer padding ?\t**** FAILED ****"
                 
@@ -225,6 +220,35 @@ class Feature(Metagene):
         self.chromosome = chromosome           
 
     # end __init__ function
+            
+    def __str__(self, counts_only=False):
+        output = ""
+
+        if not(counts_only):
+            output += "{} at {} on {} strand\n".format(self.name, self.get_chromosome_region(), self.strand)
+        
+        output += "\t\t\t"
+        for i in range(self.padding['Upstream']):
+            output += "---up-"
+        for i in range(self.feature_interval):
+            output += "--int-"
+        for i in range(self.padding['Downstream']):
+            output += "-down-"
+        output += "\n"
+        
+        output += "{0:15s}:\t".format('Position')
+        for i in self.position_array:
+            output += "{0:5d},".format(i)
+        output = output[:-1] + "\n"
+                   
+        for orientation in sorted(self.counts_array.keys(), reverse=True):
+            output += "{0:15s}:\t".format(orientation)
+            for i in self.counts_array[orientation]:
+                output += "{0:>5s},".format("{0:3.2f}".format(i))
+            output = output[:-1] + "\n"
+        return output
+                    
+                    
     
     def get_chromosome_region(self):
         '''Return position interval for samtools view (chromosome: start-end (1-based))'''
@@ -233,6 +257,24 @@ class Feature(Metagene):
             return ("{}:{}-{}".format(self.chromosome, self.get_region_end(), self.get_region_start()))
         else:
             return ("{}:{}-{}".format(self.chromosome, self.get_region_start(), self.get_region_end()))
+    
+    def get_samtools_region(self,chromosome_lengths):
+        '''Return a position interval valid for use in samtools view program.'''
+        
+        if self.strand == "-":
+            start = self.get_region_end()
+            end = self.get_region_start()
+        else:
+            start = self.get_region_start()
+            end = self.get_region_end()
+        
+        if start < 1:
+            start = 1
+            
+        if end > chromosome_lengths[self.chromosome]:
+            end = chromosome_lengths[self.chromosome]
+        
+        return ("{}:{}-{}".format(self.chromosome, start, end))
             
     def get_region_start(self):
         '''Upstream most position including padding'''
@@ -242,13 +284,32 @@ class Feature(Metagene):
         '''Downstream most position including padding'''
         return self.position_array[-1]
     
-    def print_metagene(self):
+    def print_metagene(self, metagene_length, pretty=False):
         '''Converts counts_array data to finalized metagene profiles for printing'''
         
         final_metagenes = {}
         
         output_line = ""
-        for orientation in self.counts_array:
+        if pretty:
+            output_line += "{0:15s}\t\t".format(self.name)
+            for i in range(self.padding['Upstream']):
+                output_line += "---up-"
+            for i in range(metagene_length):
+                output_line += "--int-"
+            for i in range(self.padding['Downstream']):
+                output_line += "-down-"
+            output_line += "\n"
+        
+            output_line += "{0:15s}:\t".format('Position')
+            for i in range(self.padding['Upstream'], 0, -1):
+                output_line += "{0:5d},".format(0-i)
+            for i in range(metagene_length):
+                output_line += "{0:5d},".format(i)
+            for i in range(self.padding['Downstream']):
+                output_line += "{0:5d},".format(i + metagene_length)
+            output_line = output_line[:-1] + "\n"
+            
+        for orientation in sorted(self.counts_array, reverse=True):
             # break counts_array into sections -> upstream padding, interval_feature, and downstream padding
             upstream_counts = self.counts_array[orientation][0:self.padding['Upstream']]
             interval_counts = self.counts_array[orientation][self.padding['Upstream'] : self.padding['Upstream'] + self.feature_interval]
@@ -256,22 +317,41 @@ class Feature(Metagene):
         
             # compress (or expand) interval_counts to match the size of the internal metagene
             metagene_interval_counts = self.adjust_to_metagene(interval_counts, self.shrink_factor)
+            # ensure metagene_interval is the correct length
+            if len(metagene_interval_counts) - metagene_length != 0:
+                # if the last (extra) bin is really really small then just remove it as the number is a result of float arithmetic issues
+                if metagene_interval_counts[-1] < 0.00001:
+                    metagene_interval_counts = metagene_interval_counts[:-1] 
+                else:
+                    raise MetageneError(metagene_interval_counts, "The metagene interval is not the correct length of {}:\nMetagene interval:\t{}".format(metagene_length, metagene_interval_counts))
             
-            # build output
-            output_line += "{},{}".format(self.name, orientation)
-            for p in upstream_counts:
-                output_line += ",{0:0.3f}".format(p) # keep 3 decimal places in the outputted float
-            for p in metagene_interval_counts:
-                output_line += ",{0:0.3f}".format(p)
-            for p in downstream_counts:
-                output_line += ",{0:0.3f}".format(p)
-            output_line += "\n"
+            if pretty:
+                output_line += "{0:15s}:\t".format(orientation)
+                for i in upstream_counts:
+                    output_line += "{0:>5s},".format("{0:3.2f}".format(i))
+                for i in metagene_interval_counts:
+                    output_line += "{0:>5s},".format("{0:3.2f}".format(i))
+                for i in downstream_counts:
+                    output_line += "{0:>5s},".format("{0:3.2f}".format(i))  
+                output_line = output_line[:-1] + "\n"
+            else:    
+                # build output
+                output_line += "{},{}".format(self.name, orientation)
+                for p in upstream_counts:
+                    output_line += ",{0:0.3f}".format(p) # keep 3 decimal places in the outputted float
+                for p in metagene_interval_counts:
+                    output_line += ",{0:0.3f}".format(p)
+                for p in downstream_counts:
+                    output_line += ",{0:0.3f}".format(p)
+                output_line += "\n"
         
         return output_line.strip() # remove trailing "\n"
          
     def adjust_to_metagene(self, feature_array, shrink_factor):
         '''Expand or collapse the counts data from interval_array into a metagene
         array via the given shrink factor.'''
+        ##TODO: convert to using Decimal library for float math!
+        
         # uncomment ## lines to have debugging function
         
         metagene_array = []
@@ -444,41 +524,62 @@ class Feature(Metagene):
     def test_feature():
         '''Tests of Feature class'''
         
-        print "\n**** Testing the Feature class ****\n"
+        print "\n**** Testing the Feature class ****\n"  
         
-        metagene = Metagene(10,4,2)
+        correct_features = {'bed':{}, 'gff':{} }
+        correct_features['bed']['all'] = "[17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42]"
+        correct_features['bed']['start'] = "[17, 18, 19, 20, 21, 22, 23]"
+        correct_features['bed']['end'] = "[36, 37, 38, 39, 40, 41, 42]"
+        correct_features['gff']['all'] = "[43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8]"
+        correct_features['gff']['start'] = "[43, 42, 41, 40, 39, 38, 37]"
+        correct_features['gff']['end'] = "[14, 13, 12, 11, 10, 9, 8]"
+         
         chromosome_converter = {"1":"chr1", "2":"chr2"}
-        print "  with Metagene:\t{}".format(metagene)
-        print "  with chromosome conversions:\t{}".format(chromosome_converter)     
+                                
+        for method in ['all','start','end']:
+
+            print "\nTesting feature_count option: ****{}****".format(method)
+            
+            if method == 'all':
+                metagene = Metagene(10,4,2)
+                print "  with Metagene:\t{}".format(metagene)
+                print "  with chromosome conversions:\t{}".format(chromosome_converter)
+            else:
+                metagene = Metagene(1,4,2)
+                print "  with Metagene:\t{}".format(metagene)
+                print "  with chromosome conversions:\t{}".format(chromosome_converter)
         
-        # create feature from BED line
-        try:
-            bedline = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
-            print "\nwith BED line:\t{}".format(bedline)
-            feature1 = Feature.create_from_bed(metagene, bedline, chromosome_converter)           
-        except MetageneError as err:
-            print "  Create Feature from BED line ?\t**** FAILED ****"
-        else:
-            print "  Create Feature from BED line ?\tTRUE"   
-            print "  BEDline feature:\t{}".format(feature1)
-            print "  Positions ({}): {}".format(len(feature1.position_array),feature1.position_array)
-            print "  Chromosome region:\t{}".format(feature1.get_chromosome_region())
+        
+            # create feature from BED line
+            try:
+                bedline = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
+                print " with BED line:\t{}".format(bedline.strip())
+                feature1 = Feature.create_from_bed(method, metagene, bedline, chromosome_converter)
+                if str(feature1.position_array) != correct_features['bed'][method]: 
+                    print "  Create Feature from BED line ?\t**** FAILED *****"
+                    print "  Desired positions:\t{}".format(correct_features['bed'][method])
+                    print "  Created positions:\t{}".format(feature1.position_array)          
+            except MetageneError as err:
+                print "  Create Feature from BED line ?\t**** FAILED ****"
+            else:
+                print "  Create Feature from BED line ?\tTRUE\t\t{}".format(feature1.get_chromosome_region())
             
-        # create feature from GFF line
-        try:
-            gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",10,39,".","-",".","second")
-            print "\nwith GFF line:\t{}".format(gffline)
-            feature2 = Feature.create_from_gff(metagene, gffline, chromosome_converter)
+            # create feature from GFF line
+            try:
+                gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",10,39,".","-",".","second")
+                print " with GFF line:\t{}".format(gffline.strip())
+                feature2 = Feature.create_from_gff(method,metagene, gffline, chromosome_converter)
+                if str(feature2.position_array) != correct_features['gff'][method]: 
+                    print "  Create Feature from GFF line ?\t**** FAILED *****"
+                    print "  Desired positions:\t{}".format(correct_features['gff'][method])
+                    print "  Created positions:\t{}".format(feature2.position_array)
             
-        except MetageneError as err:
-            print "  Create Feature from GFF line ?\t**** FAILED ****"
-        else:
-            print "  Create Feature from GFF line ?\tTRUE"   
-            print "  GFFline feature:\t{}".format(feature2)
-            print "  Positions ({}): {}".format(len(feature2.position_array),feature2.position_array)
-            print "  Chromosome region:\t{}".format(feature2.get_chromosome_region())
+            except MetageneError as err:
+                print "  Create Feature from GFF line ?\t**** FAILED ****"
+            else:
+                print "  Create Feature from GFF line ?\tTRUE\t\t{}".format(feature2.get_chromosome_region())
        
-        
+       
 
         ##TODO finish complete testing of Feature class
         print "\n##TODO finish complete testing of Feature class\n"
@@ -490,116 +591,102 @@ class Feature(Metagene):
         '''Specifically test the counting and summary methods (all points after
         Feature creation).'''
         
-        metagene = Metagene(10,4,2)
         chromosome_converter = {"1":"chr1", "2":"chr2"}
         
-        feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
-        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
-        print "Feature:\t{}".format(feature1.position_array)
+        for method in ['all','start','end']:
+            if method == 'all':
+                metagene = Metagene(10,4,2)
+                print "  with Metagene:\t{}".format(metagene)
+                print "  with chromosome conversions:\t{}".format(chromosome_converter)
+            else:
+                metagene = Metagene(1,4,2)
+                print "  with Metagene:\t{}".format(metagene)
+                print "  with chromosome conversions:\t{}".format(chromosome_converter)
         
-        reads = []
-        reads.append(Read("chr1", "+", 3, 1, [10,11,12,13,14,15,16,17,18]))
-        reads.append(Read("chr1", "-", 1, 2, [23,24,25,26,27,28,29,30,31,32]))
-        reads.append(Read("chr1", "+", 4, 2, [30,31,32,33,34,40,41]))
-        reads.append(Read("chr1", "-", 1, 1, [42,43,44,45,46,47,48,49,50]))
-        reads.append(Read("chr1", "+", 10, 1, [51,52,53,54,55]))
-        reads.append(Read("chr2", "+", 10, 1, [18,19,20,21,22,23,24,25]))
+            print "\nTesting feature_count option: ****{}****".format(method)
+            feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
+            feature1 = Feature.create_from_bed(method, metagene, feature_line, chromosome_converter)
+            print "Feature:\t{}".format(feature1.position_array)
         
-        # starting count
-        print "Count_method = 'all'"
-        for orientation in feature1.counts_array:
-            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
-            
-        for r in reads:
-            print "\nRead:\t{}".format(r.position_array)
-            feature1.count_read(r, 'all') 
-            for orientation in feature1.counts_array:
-                print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+            reads = []
+            reads.append(Read("chr1", "+", 3, 1, [10,11,12,13,14,15,16,17,18]))
+            reads.append(Read("chr1", "-", 1, 2, [23,24,25,26,27,28,29,30,31,32]))
+            reads.append(Read("chr1", "+", 4, 2, [30,31,32,33,34,40,41]))
+            reads.append(Read("chr1", "-", 1, 1, [42,43,44,45,46,47,48,49,50]))
+            reads.append(Read("chr1", "+", 10, 1, [51,52,53,54,55]))
+            reads.append(Read("chr2", "+", 10, 1, [18,19,20,21,22,23,24,25]))
         
-        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
+            # starting count
+            #TODO: figure out wierd 11th interval bin in feature_method 'end' + count_method 'all'
+            for count_method in ['all','start','end']:
+                print "\nTesting count_method option: ****{}****".format(count_method)
+
+                output = "\n{0:15s}:\t".format('Feature')
+                for i in feature1.position_array:
+                    output += "{0:3d},".format(i)
+                print output[:-1] 
+                   
+                for orientation in ['sense','antisense']:
+                    output = "{0:15s}:\t".format(orientation)
+                    for i in feature1.counts_array[orientation]:
+                        output += "{0:3d},".format(i)
+                    print output[:-1]
+                
+                for r in reads:
+                    print "\nRead ({},{},NA={},NH={},count={})  :\t{}".format(r.chromosome,r.strand,r.abundance, r.mappings, float(r.abundance) / r.mappings, r.position_array)
+                    feature1.count_read(r, count_method) 
+                    output = "{0:15s}:\t".format('Feature')
+                    for i in feature1.position_array:
+                        output += "{0:5d},".format(i)
+                    print output[:-1] 
+                    
+                    for orientation in ['sense','antisense']:
+                        output = "{0:15s}:\t".format(orientation)
+                        for i in feature1.counts_array[orientation]:
+                            output += " {0:2.2f},".format(i)
+                        print output[:-1]
         
-        print "\nCount_method = 'start'"
-        # reset feature1 to fresh (normally the feature is lost after counting)
-        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
-        
-        for r in reads:
-            feature1.count_read(r, 'start') 
-        
-        for orientation in feature1.counts_array:
-            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
-        
-        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
-        
-        print "\nCount_method = 'end'"
-        # reset feature1 to fresh (normally the feature is lost after counting)
-        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
-        
-        for r in reads:
-            feature1.count_read(r, 'end') 
-        
-        for orientation in feature1.counts_array:
-            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
-        
-        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
+                print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene(metagene.feature_interval))
+                feature1 = Feature.create_from_bed(method, metagene, feature_line, chromosome_converter) # zero out counter for next round
         
         try:
             unstranded_read = Read("chr1", ".", 10, 1, [18,19,20,21,22,23,24,25])
             feature1.count_read(unstranded_read, 'all')
         except MetageneError as err:
-            print "Caught unstranded read on stranded count ?\tTRUE"
-            print err
+            print "Caught unstranded read on stranded count ?\tTRUE\t\t".format(err)
         else:
             print "Caught unstranded read on stranded count ?\t**** FAILED ****"
         
-            
-        # try on feature with out a strand
-        feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"u")
-        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
-        
-        print "\nCount_method = 'all'"
-        for orientation in feature1.counts_array:
-            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
-            
-        for r in reads:
-            print "\nRead:\t{}".format(r.position_array)
-            feature1.count_read(r, 'all') 
-            for orientation in feature1.counts_array:
-                print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
-        
-        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
-        
-        print "\nCount_method = 'start'"
-        # reset feature1 to fresh (normally the feature is lost after counting)
-        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
-        
-        for r in reads:
-            feature1.count_read(r, 'start') 
-        
-        for orientation in feature1.counts_array:
-            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
-       
-        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
-        
-        print "\nCount_method = 'end'"
-        # reset feature1 to fresh (normally the feature is lost after counting)
-        feature1 = Feature.create_from_bed(metagene, feature_line, chromosome_converter)
-        
-        for r in reads:
-            feature1.count_read(r, 'end') 
-        
-        for orientation in feature1.counts_array:
-            print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
-        
-        print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene())
-        
         try:
             unstranded_read = Read("chr1", ".", 10, 1, [18,19,20,21,22,23,24,25])
             feature1.count_read(unstranded_read, 'all')
         except MetageneError as err:
-            print "Allowed unstranded read on unstranded count ?\t**** FAILED ****"
-            print err
+            print "Allowed unstranded read on unstranded count ?\t**** FAILED ****\t\t".format(err)
         else:
             print "Allowed unstranded read on unstranded count ?\tTRUE"
+            
+        # try on feature with out a strand
+        metagene = Metagene(10,4,2)
+        print "  with Metagene:\t{}".format(metagene)
+        print "  with chromosome conversions:\t{}".format(chromosome_converter)
+        feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"u")
+        
+        
+        for count_method in ['all','start','end']:
+            feature1 = Feature.create_from_bed('all',metagene, feature_line, chromosome_converter)
+            print "\nCount_method = {}".format(count_method)
+            for orientation in feature1.counts_array:
+                print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+            
+            for r in reads:
+                print "\nRead:\t{}".format(r.position_array)
+                feature1.count_read(r, count_method) 
+                for orientation in feature1.counts_array:
+                    print "{}:\t{}".format(orientation, feature1.counts_array[orientation])
+        
+            print "\nFinal Metagene:\n{}\n".format(feature1.print_metagene(metagene.feature_interval))
+      
+
     # end test_counting_methods function
     
     @staticmethod
@@ -687,7 +774,7 @@ class Read():
     # End of __init__
     
     def __str__(self):
-        return str(self.position_array)
+        return "Read at {0}:{1}-{2} on {3} strand; counts for {4:1.3f}:\t\t{5}".format(self.chromosome, self.get_start_position(), self.get_end_position(), self.strand, float(self.abundance)/self.mappings, str(self.position_array))
     
     def get_start_position(self):
         return self.position_array[0]
@@ -780,7 +867,7 @@ class Read():
 
         
     @classmethod
-    def create_from_sam(cls, sam_line, chromosome_conversion, unique=False):
+    def create_from_sam(cls, sam_line, chromosome_conversion, extract_abundance=False, unique=False):
         '''Create a Read object from a bamfile line, requires that the chromosome 
         is in the chromosome_conversion dictionary'''
         
@@ -812,9 +899,12 @@ class Read():
                 mappings = "Unknown"
         
         # assign abundance either from NA:i:## tag or as 1 (default)
-        try: 
-            abundance = int(re.search('NA:i:(\d+)', sam_line).group(1))
-        except AttributeError:
+        if extract_abundance:
+            try: 
+                abundance = int(re.search('NA:i:(\d+)', sam_line).group(1))
+            except AttributeError:
+                raise MetageneError(sam_line, "Could not extract the abundance tag")
+        else:
             abundance = 1
            
         # assign strand and positions
@@ -956,7 +1046,7 @@ Requires:
     
     # adjust internal_size if only the start or end of the feature will be counted
     if arguments.feature_count != 'all':
-        arguments.interal_size = 1
+        arguments.interval_size = 1
                              
     return arguments
 
@@ -1143,18 +1233,27 @@ def metagene_count():
                 # change creation with feature_method
                 feature = Feature.create(feature_format, arguments.feature_count, metagene, feature_line, chromosome_conversion_table)
                 
-                # pull out sam file lines
-                (runPipe_worked, sam_sample) = runPipe(['samtools view {} {}'.format(arguments.alignment,feature.get_chromosome_region())])
+                print feature
+                
+                # pull out sam file lines; it is important to use Feature.get_samtools_region(chromosome_lengths) rather
+                # than Feature.get_chromosome_region() because only the first ensures that the interval does not
+                # extend beyond the length of the chromosome which makes samtools view return no reads
+                (runPipe_worked, sam_sample) = runPipe(['samtools view {} {}'.format(arguments.alignment,feature.get_samtools_region(chromosomes))])
                 if runPipe_worked:
                     for samline in sam_sample:
                         if len(samline) > 0:
                             # create Read feature
                             read = Read.create_from_sam(samline, chromosome_conversion_table, unique=not(arguments.extract_mappings))
+                            print read
                             # count read
                             feature.count_read(read, arguments.count_method)
+                            print Feature.__str__(feature,counts_only=True)
                     # output the resulting metagene
                     with open("{}.metagene_counts.csv".format(arguments.output_prefix), 'a') as output_file:
-                        output_file.write("{}\n".format(feature.print_metagene()))
+                        print "Finished counting reads..."
+                        print Feature.__str__(feature,counts_only=True)
+                        print feature.print_metagene(metagene.feature_interval, pretty=True)
+                        output_file.write("{}\n".format(feature.print_metagene(metagene.feature_interval)))
                     
                 else:
                     print sam_sample
