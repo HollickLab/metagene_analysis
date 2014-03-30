@@ -164,7 +164,7 @@ class Feature(Metagene):
     __slots__ = ['name', 'chromosome', 'strand', 'shrink_factor','counts_array', 'position_array']
     # inherits feature_interval, padding, and length from Metagene
     
-    def __init__(self, metagene_object, name, chromosome, start, end, strand, gap_counting=False):
+    def __init__(self, count_method, metagene_object, name, chromosome, start, end, strand, gap_counting=False):
         '''Define a new feature with an interval (represents feature length), up and downstream padding (defined by metagene_object), and genomic (1-based) start and end positions.
         
         Once defined here, the start and end represent the true start and end of the feature.  Therefore, if a - strand (Crick strand) feature the start will be larger than the end.''' 
@@ -175,9 +175,12 @@ class Feature(Metagene):
             end = int(end)
             # Define feature-specific metagene where feature_interval respresents 
             # the length of the feature NOT the length of the final metagene interval
-            Metagene.__init__(self,(end - start + 1), metagene_object.padding['Upstream'], metagene_object.padding['Downstream'])
+            if count_method == 'all':
+                Metagene.__init__(self,(end - start + 1), metagene_object.padding['Upstream'], metagene_object.padding['Downstream'])
+            else:
+                Metagene.__init__(self,1, metagene_object.padding['Upstream'], metagene_object.padding['Downstream'])
             self.shrink_factor = self.feature_interval / float(metagene_object.feature_interval)
-            
+                
             self.strand = strand
             if self.strand != "+" and self.strand != "-":
                 self.strand = "."
@@ -194,13 +197,21 @@ class Feature(Metagene):
             # + strand:   [10,11,12,13,14,15]
             # - strand:   [15,14,13,12,11,10] 
             # so array[0] is always the start and array[-1] is always the end
-            
+             
             if self.strand == "-": 
+                if count_method == 'start':
+                    start = end # set both start and end to the end value (which is really the start)
+                elif count_method == 'end':
+                    end = start
                 region_start = start - self.padding['Downstream'] # start is really end
                 region_end = end + self.padding['Upstream'] # end is really start
                 positions = range(region_start, region_end + 1) # inclusive list
                 positions.reverse()
             else:
+                if count_method == 'start':
+                    end = start # set both start and end to the start value
+                elif count_method == 'end':
+                    start = end # set both start and end to the end value
                 region_start = start - self.padding['Upstream'] 
                 region_end = end + self.padding['Downstream'] 
                 positions = range(region_start, region_end + 1) # inclusive list
@@ -374,12 +385,39 @@ class Feature(Metagene):
     
     #******** creating Feature objects from diffent feature file formats (eg BED and GFF) ********#
     @classmethod
-    def create_from_bed(cls, metagene_object, bed_line, chromosome_conversion):
+    def create(cls, format, count_method, metagene, feature_line, chromosome_conversion_table):
+        '''Calls individual creation methods based on format.'''
+        if format == "GFF":
+            return Feature.create_from_gff(count_method, metagene, feature_line, chromosome_conversion_table)
+        elif format == "BED":
+            return Feature.create_from_bed(count_method, metagene, feature_line, chromosome_conversion_table)
+        elif format == "BED_SHORT":
+            return Feature.create_from_bed(count_method, metagene, feature_line, chromosome_conversion_table, short=True)
+            
+            
+    @classmethod
+    def create_from_bed(cls, count_method, metagene_object, bed_line, chromosome_conversion, short=False):
         '''Return a Feature object created from the BED line'''
         
         bed_parts = bed_line.strip().split("\t")
         
-        return (Feature(metagene_object, 
+        
+        if short:
+            if len(bed_parts) < 4:
+                name = "Unknown_name"
+            else:
+                name = bed_parts[3]
+                
+            return (Feature(count_method, 
+                        metagene_object, 
+                        name,  # name
+                        chromosome_conversion[bed_parts[0]], # alignment style chromosome name
+                        int(bed_parts[1]) + 1, # start 1-based
+                        int(bed_parts[2]), # end 1-based
+                        ".")) # strand
+        else:
+            return (Feature(count_method, 
+                        metagene_object, 
                         bed_parts[3],  # name
                         chromosome_conversion[bed_parts[0]], # alignment style chromosome name
                         int(bed_parts[1]) + 1, # start 1-based
@@ -387,13 +425,16 @@ class Feature(Metagene):
                         bed_parts[5])) # strand
 
     @classmethod
-    def create_from_gff(cls, metagene_object, gff_line, chromosome_conversion):
+    def create_from_gff(cls, count_method, metagene_object, gff_line, chromosome_conversion):
         '''Return a Feature object created from the GFF line'''
         
         gff_parts = gff_line.strip().split("\t")
         
-        return (Feature(metagene_object, 
-                        gff_parts[8],  # name (potentially messy)
+        # ensure there are no commas in the name line
+        name = ";".join(gff_parts[8].split(","))
+        return (Feature(count_method, 
+                        metagene_object, 
+                        name,  # name (potentially messy)
                         chromosome_conversion[gff_parts[0]], # alignment style chromosome name
                         int(gff_parts[3]), # start 1-based
                         int(gff_parts[4]), # end 1-based
@@ -747,7 +788,7 @@ class Read():
 
         # assign chromosome
         if sam_parts[2] not in chromosome_conversion.values():
-            raise MetageneError(sam_parts[2], "Read chromosome is not in the analysis set")
+            raise MetageneError(sam_parts[2], "Read chromosome {} is not in the analysis set".format(sam_parts[2]))
         else:
             chromosome = sam_parts[2]
         
@@ -873,7 +914,7 @@ Requires:
                         required = True)
     parser.add_argument("-o", "--output_prefix",
                         help = "Prefix for output files",
-                        default = "{}.metagene.".format(date))
+                        default = "{}.metagene".format(date))
     
     parser.add_argument("--feature_count",
                         help = "Examine only the start, end or all of a feature",
@@ -948,7 +989,7 @@ def get_chromosome_conversions(tabfile, bam_chromosomes):
     
     conversion_table = {}
     
-    if arguments.chromosome_names:
+    if tabfile != "None":
         infile = open(tabfile)
     
         rows = infile.read().strip().split("\n")
@@ -964,15 +1005,101 @@ def get_chromosome_conversions(tabfile, bam_chromosomes):
     
     return conversion_table
 
+def runPipe(cmds):
+    '''runPipe function is from danizgod's post at stackoverflow exchange: 
+    http://stackoverflow.com/questions/9655841/python-subprocess-how-to-use-pipes-thrice
+    
+    Usage: runPipe(['ls -1','head -n 2', 'head -n 1'])'''
+    
+    try: 
+        p = subprocess.Popen(cmds[0].split(' '), stdin = None, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        prev = p
+        for cmd in cmds[1:]:
+            p = subprocess.Popen(cmd.split(' '), stdin = prev.stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+            prev = p
+        stdout, stderr = p.communicate()
+        p.wait()
+        returncode = p.returncode
+    except Exception, e:
+        stderr = str(e)
+        returncode = -1
+    if returncode == 0:
+        return (True, stdout.strip().split('\n'))
+    else:
+        return (False, stderr)
+
 def has_sam_tag(bamfile, tag):
     '''Checks for a particular tag in the sam lines.'''
     
-    header = subprocess.check_output(['samtools', 'view', bamfile]).split("\n")
+    (runPipe_worked, sam_sample) = runPipe(['samtools view {}'.format(bamfile), 'head -n 10'])
+    if runPipe_worked:
+        num_tags = 0
+        for sam_line in sam_sample:
+            if re.search(tag,sam_line) != None:
+                num_tags += 1
+        if num_tags == 10:
+            return True
+        else:
+            return False
+    else:
+        raise MetageneError(sam_sample, "Checking the bam file failed with error: {}".format(sam_sample))
     
+def determine_format(feature_file):
+    '''Distinguish between BED and GFF file types.
+    BED: chromosome, start, end, name, score, strand
+    GFF: chromosome, label, label, start, end, ?, strand, ?, name/misc (often ; delimited)
     
+    Distinguishing points: columns 1 & 2 ints and 5 (if it exists) is +, -, or . ==> BED
+                           columns 3 & 4 ints and 6 is +, -, or . and 7 or more columns ==> GFF'''
+    
+    counts = {'BED':0, 'BED_SHORT':0, 'GFF':0, 'UNKNOWN':0}
+    header = 0
+    total = 0
+    
+    try:
+        with open(feature_file, 'r') as infile:
+            for line in infile.readlines(50): # read first 50 bytes
+                total += 1
+                if line[0] == "#":
+                    header += 1
+                elif re.search('\A\S+\t\d+\t\d+\t\S+\t\S+\t[+.-]\s+\Z',line) != None:
+                    counts['BED'] += 1
+                elif re.search('\A\S+\t\S+\t\S+\t\d+\t\d+\t\S+\t[+.-]\t\S+\t\S+\s+\Z', line) != None:
+                    counts['GFF'] += 1
+                elif re.search('\A\S+\t\d+\t\d+', line) != None:
+                    counts['BED_SHORT'] += 1
+                else:
+                    counts['UNKNOWN'] += 1
+    except IOError as err:
+        infile.close()
+        raise MetageneError(err, "Could not open the feature file.")
+    
+    # require that at least 80% of the sampled lines are classified the same to auto-determine
+    values = list(counts.values())
+    keys = list(counts.keys())
+    max_key = keys[values.index(max(values))]
+    if max(values) >= 0.8 * (total - header) and max_key != "UNKNOWN":
+        return max_key
+    else:
+        raise MetageneError(feature_file, "Could not determine the format of the feature file.")
+    
+def read_chunk(file_obj,chunk_size):
+    '''Read in file by chunk_size chunks returning one line at a time.'''
+    # get first chunk
+    chunk = file_obj.read(chunk_size)
+    # continue looping until a chunk is just EOF (empty line)
+    while chunk:
+        chunk_list = chunk.split("\n")
+        # yield all but last, potentially incomplete line
+        for c in chunk_list[:-1]:
+            yield c
+        # add incomplete line to beginning of next chunk read
+        chunk = chunk_list[-1] + file_obj.read(chunk_size)
+  
+           
 def metagene_count():
     '''Chain of command for metagene_count analysis.'''
-    ##TODO: finish the flow of command
+
     arguments = get_arguments()
     #print "Current arguments: \n{}".format(arguments)
     
@@ -986,60 +1113,71 @@ def metagene_count():
     
     if arguments.extract_mappings and not has_sam_tag(arguments.alignment, "NH:i:\d+"):
         raise MetageneError(arguments.extract_mappings, "Your alignment file does not have the required NH:i:## mappings tags\nAdjust the alignment file or remove the --extract_mappings tag to treat each read as unique and remove hits-normalization")
-        
+       
     # create chromosome conversion dictionary for feature (GFF/BED) to alignment (BAM)
-    if arguments.chromosome_names != "None":
-        # create dict of 
-        chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names, chromosomes.keys())
-    else:
-        # dummy dict of BAM-defined chromosome names in both cases
-        chromosome_conversion_table = {}
-        for c in chromosomes:
-            chromosome_conversion_table[c] = c
-        
+    chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names, chromosomes.keys())   
     #print "Current conversion table: \n{}".format(chromosome_conversion_table)
     
     # define the metagene array shape (left padding, start, internal, end, right padding)
     # metagene = padding ---- internal region ---- padding 
     try:
         metagene = Metagene(arguments.interval_size, arguments.padding, arguments.padding)
+        print "Metagene definition:\t{}".format(metagene)
     except MetageneError as err:
         print err
-        sys.exit()
+        raise MetageneError(err, "Unable to create the metagene template")
     
-    # testing metagene object    
-    print metagene.padding_upstream, metagene.feature_interval, metagene.padding_downstream, metagene.length
-    print metagene.get_interval_start()
-    print metagene.get_interval_end()
-    
-    feature_format = "gff" # get_format(arguments.feature) 
-      
+    try:
+        feature_format = determine_format(arguments.feature) # distinguish between BED, BED_SHORT, and GFF formats
+        print "Reading feature file as {} format".format(feature_format)
+    except MetageneError as err:
+        print err
+        raise MetageneError(err, "Unable to create the feature object")
+
+              
     # for each feature
-    for feature_line in read_features(arguments.feature):
-        feature = Feature.create(feature_format, metagene, feature_line, chromosome_conversion_table)# create an empty metagene
-        
-        # define genomic positions
-        feature_region = define_genomic(feature, arguments.padding)
-        
-        for read in get_reads(feature_region):
-            # read = array of genomic positions to tally back to the feature_metagene
-            feature_metagene = add_read(read, feature_metagene)
-            
-        # output feature_metagene          
+    
+    with open(arguments.feature, 'r') as feature_file:
+        for feature_line in read_chunk(feature_file, 1024):
+            if feature_line[0] != "#": # skip comment lines
+                # change creation with feature_method
+                feature = Feature.create(feature_format, arguments.feature_count, metagene, feature_line, chromosome_conversion_table)
+                
+                # pull out sam file lines
+                (runPipe_worked, sam_sample) = runPipe(['samtools view {} {}'.format(arguments.alignment,feature.get_chromosome_region())])
+                if runPipe_worked:
+                    for samline in sam_sample:
+                        if len(samline) > 0:
+                            # create Read feature
+                            read = Read.create_from_sam(samline, chromosome_conversion_table, unique=not(arguments.extract_mappings))
+                            # count read
+                            feature.count_read(read, arguments.count_method)
+                    # output the resulting metagene
+                    with open("{}.metagene_counts.csv".format(arguments.output_prefix), 'a') as output_file:
+                        output_file.write("{}\n".format(feature.print_metagene()))
+                    
+                else:
+                    print sam_sample
+                    raise MetageneError(sam_sample, "Could not pull chromosomal region {} for feature {} from BAM file {}.".format(feature.get_chromosome_region(), feature.name, arguments.alignment))
+      
    
 
     
 if __name__ == "__main__":
     # testing classes and methods
-    Metagene.test_metagene()
-    Feature.test_feature()
-    Read.test_read()
+    #Metagene.test_metagene()
+    #Feature.test_feature()
+    #Read.test_read()
     
-    Feature.test_counting_methods()
-    Feature.test_adjust_to_metagene_method()
+    #Feature.test_counting_methods()
+    #Feature.test_adjust_to_metagene_method()
     
     # actual run...
-    #metagene_count()    
-   
+    try:
+        metagene_count()    
+    except MetageneError as err:
+        print "\n{}\n".format(err)
+        print "Aborting metagene analysis..."
+        sys.exit()
     
 
