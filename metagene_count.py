@@ -36,7 +36,7 @@ import argparse		# to parse the command line arguments
 
 PROGRAM = "metagene_count.py"
 VERSION = "0.1.2"
-UPDATED = "140331 JRBT"
+UPDATED = "140402 JRBT"
 
 class Error(Exception):
     pass
@@ -1250,9 +1250,9 @@ def determine_format(feature_file):
                 total += 1
                 if line[0] == "#":
                     header += 1
-                elif re.search('\A\S+\t\d+\t\d+\t\S+\t\S+\t[+.-]\s+\Z',line) != None:
+                elif re.search('\A\S+\t\d+\t\d+\t\S+\t\S+\t[+.-]\s+',line) != None:
                     counts['BED'] += 1
-                elif re.search('\A\S+\t\S+\t\S+\t\d+\t\d+\t\S+\t[+.-]\t\S+\t\S+\s+\Z', line) != None:
+                elif re.search('\A\S+\t\S+\t\S+\t\d+\t\d+\t\S+\t[+.-]\t\S+\t\S+\s+', line) != None:
                     counts['GFF'] += 1
                 elif re.search('\A\S+\t\d+\t\d+', line) != None:
                     counts['BED_SHORT'] += 1
