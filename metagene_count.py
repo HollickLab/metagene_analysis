@@ -110,13 +110,35 @@ Requires:
     parser.add_argument("--count_splicing",
                         help = "Count reads as spliced or unspliced",
                         action = 'store_true')
+                        
+    parser.add_argument("--include_reads",
+                        help = "Include reads with these features, repeat tag up to 4 times. Hint: can ignore if BAM column 2 < 256",
+                        choices = ['secondary_alignment', 'failed_quality_control', 'PCR_duplicate', 'supplementary_alignment'],
+                        action = 'append')
     
     arguments = parser.parse_args()
     
     # adjust internal_size if only the start or end of the feature will be counted
     if arguments.feature_count != 'all':
         arguments.interval_size = 1
-                             
+    
+    arguments.count_secondary_alignments = False
+    arguments.count_failed_quality_control = False
+    arguments.count_PCR_optical_duplicate = False
+    arguments.count_supplementary_alignment = False
+    
+    if 'secondary_alignment' in arguments.include_reads:
+        arguments.count_secondary_alignments = True
+        
+    if 'failed_quality_control' in arguments.include_reads:
+        arguments.count_failed_quality_control = True
+        
+    if 'PCR_duplicate' in arguments.include_reads:
+        arguments.count_PCR_optical_duplicate = True
+        
+    if 'supplementary_alignment' in arguments.include_reads:
+        arguments.count_supplementary_alignment = True
+        
     return arguments
 
 def get_chromosome_sizes(bamfile):
@@ -312,7 +334,15 @@ def metagene_count():
                     for samline in sam_sample:
                         if len(samline) > 0:
                             # create Read feature
-                            (created_read, read) = Read.create_from_sam(samline, chromosome_conversion_table, arguments.extract_abundance, not(arguments.extract_mappings))
+                            (created_read, read) = Read.create_from_sam(samline, 
+                                                                        chromosome_conversion_table, 
+                                                                        arguments.count_method, 
+                                                                        arguments.extract_abundance, 
+                                                                        not(arguments.extract_mappings),
+                                                                        arguments.count_secondary_alignments,
+                                                                        arguments.count_failed_quality_control,
+                                                                        arguments.count_PCR_optical_duplicate,
+                                                                        arguments.count_supplementary_alignment)
                             ##print read
                             # count read (if it exists)
                             if created_read:

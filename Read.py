@@ -90,7 +90,15 @@ class Read():
     
     
     @classmethod
-    def create_from_sam(cls, sam_line, chromosome_conversion, extract_abundance=False, unique=False):
+    def create_from_sam(cls, sam_line, 
+                             chromosome_conversion, 
+                             count_method, 
+                             extract_abundance=False, 
+                             unique=False,
+                             count_secondary_alignments=True,
+                             count_failed_quality_control=False,
+                             count_PCR_optical_duplicate=False,
+                             count_supplementary_alignment=True):
         '''Create a Read object from a bamfile line, requires that the chromosome 
         is in the chromosome_conversion dictionary
         
@@ -99,7 +107,13 @@ class Read():
                           
         unique = True --> force mappings to 1; 
                           only unique alignments represented (or desire to avoid hits-normalization)
-               = False --> extract number of alignments from NH:i:## tag'''
+               = False --> extract number of alignments from NH:i:## tag
+        
+        Default options for counting reads with certain SAM flags       
+        count_secondary_alignments=True,
+        count_failed_quality_control=False,
+        count_PCR_optical_duplicate=False,
+        count_supplementary_alignment=True'''
         
         sam_parts = sam_line.split("\t")
 
@@ -110,14 +124,22 @@ class Read():
             chromosome = sam_parts[2]
         
         # parse bitwise flag
-        (multiple_flag, unmapped_flag, reversed_flag) = Read.parse_sam_bitwise_flag(int(sam_parts[1]))
+        count_only_start = False
+        count_only_end = False
+        if count_method == 'start':
+            count_only_start = True
+        elif count_method == 'end':
+            count_only_end = True
         
-## TODO Add multiple-mapping functionality 
-        if multiple_flag:
-            raise MetageneError(sam_line, "Can not parse sam lines with mapping in multiple segments")
-           
+        (countable, reverse_complement) = Read.parse_sam_bitwise_flag(int(sam_parts[1]), 
+                                                                      count_secondary_alignments, 
+                                                                      count_failed_quality_control,
+                                                                      count_PCR_optical_duplicate,
+                                                                      count_supplementary_alignment,
+                                                                      count_only_start,
+                                                                      count_only_end)
         
-        if not unmapped_flag: # only process mapping reads
+        if countable: # only process countable reads
             # assign mappings
             if unique:
                 mappings = 1
@@ -137,7 +159,7 @@ class Read():
                 abundance = 1
            
             # assign strand and positions
-            if reversed_flag: # Crick or Minus strand
+            if reverse_complement: # Crick or Minus strand
                 strand = "-" 
             else: # Watson or Plus strand
                 strand = "+"  
@@ -152,41 +174,101 @@ class Read():
     
    
     @classmethod
-    def parse_sam_bitwise_flag(cls, decimal_flag):
-        '''Pulls bitwise flags for multiple mapping (bit 0x1), unmapped (bit 0x4), 
-        and reversed sequences (bit 0x10) according to the samtools manual.
+    def parse_sam_bitwise_flag(cls, flags, 
+                                    count_secondary_alignments=True, 
+                                    count_failed_quality_control=False,
+                                    count_PCR_optical_duplicate=False,
+                                    count_supplementary_alignment=True,
+                                    count_only_start=False,
+                                    count_only_end=False):
+        '''Parses bitwise flag to determine how to handle the read.
+        Default values for count flags, pass flag name and opposite boolean to switch: 
+            count_secondary_alignments      = True 
+            count_failed_quality_control    = False
+            count_PCR_optical_duplicate     = False
+            count_supplementary_alignment   = True
+            count_only_start                = False*
+            count_only_end                  = False*
+            * only one of these can be True at a time
+          
+        Based on description from Sequence Alignment/Map Format Secification, 
+        28 Feb 2014; version 7fd84b0 from https://github.com/samtools/hts-specs
         
-        binary string: .... 0000 0000
-        multi-mapping flag          ^ string[-1]
-        unmapped flag             ^   string[-3]
-        reversed flag          ^      string[-5] (ignoring space)           
+        Bit(hex)    binary string: 0000 0000 0000
+        0x1         string[-1]                  ^  template in multiple segments; if 0, MUST ignore string[-2,-4,-6,-7,-8]
+        0x2         string[-2]                 ^   each segment is properly aligned (according to aligner)
+        0x4         string[-3]                ^    unmapped flag read MUST ignore string[-2,-5,-9,-12] and prev_string[-6]
+        0x8         string[-4]               ^     next segment in template is unmapped MUST ignore string[-6]
+        
+        0x10        string[-5]             ^       reverse complement of seq (- strand)
+        0x20        string[-6]            ^        next segment is reverse complemented
+        0x40        string[-7]           ^         first segment of template
+        0x80        string[-8]          ^          last segment of template
+        
+        *** User input can flip these default behaviors... ***
+        0x100       string[-9]        ^            secondary alignment                   
+        0x200       string[-10]      ^             not passing quality controls         
+        0x400       string[-11]     ^              PCR or optical duplicate              
+        0x800       string[-12]    ^               supplementary alignment               
+        
+          
+        Return tuple of booleans for (all start as True):
+        (Countable?, Reverse Complemented?)
+
         '''
         
-## TODO Part of add multiple-mapping functionality -- extend bitwise flag parsing to the multiple mapping flags
-        binary_flag = bin(decimal_flag)[2:].zfill(8) # removes "0b" prefix and fills from left out to 8 positions
+        # make sure that only one of count_only_start or count_only_end is true
+        if count_only_start and count_only_end:
+            raise MetageneError((count_only_start, count_only_end), "You can not count only the start and only the end, choose one or neither")
         
-        if int(binary_flag[-1]) == 1:
-            multiple = True
+        if (flags & 0x10) == 0:
+            reverse_complement = False
         else:
-            multiple = False
+            reverse_complement = True
+            
+        # Is the read countable?
+        # Does it map? 
+        if (flags & 0x4) == 0x4: # flag is set and read is unmapped
+            return (False,reverse_complement)
         
-        if int(binary_flag[-3]) == 1:
-            unmapped = True
+        # Is it a secondary alignment and do we care?
+        elif (flags & 0x100) == 0x100 and not count_secondary_alignments:
+            return (False,reverse_complement)
+            
+        # Did it fail the quality control and do we care?
+        elif (flags & 0x200) == 0x200 and not count_failed_quality_control:
+            return (False,reverse_complement)
+        
+        # Is it a PCR or optical duplicate and do we care?
+        elif (flags & 0x400) == 0x400 and not count_PCR_optical_duplicate:
+            return (False,reverse_complement)
+        
+        # Is it a supplementary alignment and do we care?
+        elif (flags & 0x800) == 0x800 and not count_supplementary_alignments:
+            return (False,reverse_complement)
+       
+        # Do we care about counting only the start or end? and does it matter (because part of a multi-segment template)?
+        elif (count_only_start or count_only_end) and (flags & 0x1) == 0x1:
+            # Do we care about the start and does this segment contain the start?
+            if count_only_start and (flags & 0x40) == 0x40:
+                return (True,reverse_complement)
+            # Do we care about the end and does this segment contain the end?
+            elif count_only_end and (flags & 0x80) == 0x80:
+                return (True,reverse_complement)
+            else:
+                return (False,reverse_complement)
         else:
-            unmapped = False
-        
-        if int(binary_flag[-5]) == 1:
-            reverse = True
-        else:
-            reverse = False
-        
-        return (multiple,unmapped,reverse)
-
+            # Made it through everything that could negate counting the read, so count it!     
+            return (True, reverse_complement)
 
     @classmethod
     def build_positions(cls, start, cigar, seq):    
         '''Parse through a cigar string to return the genomic positions that are
-        covered by the read.  Starts at the left-most 1-based start location'''
+        covered by the read.  Starts at the left-most 1-based start location
+        
+        CIGAR codes and explainations from: 
+        Descriptions from Sequence Alignment/Map Format Secification, 
+        28 Feb 2014; version 7fd84b0 from https://github.com/samtools/hts-specs'''
         
         array = []
         position = start

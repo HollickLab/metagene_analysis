@@ -43,7 +43,7 @@ def test():
     try:
         samline1 = "read_1	24	chr1	200	255	3S2M4N3M2X3M	*	0	0	bbbbbbbbbbbbb	bbbbbbbbbbbbb	XA:i:0	MD:Z:40	NH:i:50  NA:i:10"
         print "\twith SAM line:\t{}".format(samline1)
-        read1 = Read.create_from_sam(samline1, chromosome_converter)
+        read1 = Read.create_from_sam(samline1, chromosome_converter, 'all')
     except MetageneError as err:
         print "**FAILED**\tCreate Read object from SAM line ?\t\t{}".format(err)
     else:
@@ -54,12 +54,25 @@ def test():
     try:
         samline1 = "read_1	0	chr1	200	255	*	*	0	0	bbbbbbbbbbbbb	bbbbbbbbbbbbb	XA:i:0	MD:Z:40	NH:i:50  NA:i:10"
         print "\twith SAM line:\t{}".format(samline1)
-        read1 = Read.create_from_sam(samline1, chromosome_converter)
+        read1 = Read.create_from_sam(samline1, chromosome_converter, 'all')
     except MetageneError as err:
         print "**FAILED**\tCreate Read object from SAM line ?\t\t{}".format(err)
     else:
         print "PASSED\tCreate Read object from SAM line ?"
         print "\t  {}".format(read1[1])
+        
+    try:
+        samline1 = "read_1	256	chr1	200	255	*	*	0	0	bbbbbbbbbbbbb	bbbbbbbbbbbbb	XA:i:0	MD:Z:40	NH:i:50  NA:i:10"
+        print "\twith SAM line:\t{}".format(samline1)
+        read1 = Read.create_from_sam(samline1, chromosome_converter, 'all', count_secondary_alignments=False)
+    except MetageneError as err:
+        print "**FAILED**\tDid not create Read object from unaccepted SAM line ?\t\t{}".format(err)
+    else:
+        if not read1[0]:
+            print "PASSED\tDid not create Read object from unaccepted SAM line ?"
+            print "\t  {}".format(read1[1])
+        else:
+            print "**FAILED**\tDid not create Read object from unaccepted SAM line ?\t\t{}".format(read1[1])
 
                 
 ##TODO finish complete testing of Feature class
