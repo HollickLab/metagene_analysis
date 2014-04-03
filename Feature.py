@@ -95,6 +95,7 @@ class Feature(Metagene):
     # inherits feature_interval, padding, and length from Metagene
     
     format = "Unknown" # format of feature file (current options handled are BED, SHORT_BED, and GFF)
+    previously_warned_start_bigger_than_end = False
     
     def __init__(self, count_method, metagene_object, name, chromosome, start, end, strand, gap_counting=False):
         '''Not normally called directly; use Feature.create(file_format, count_method, 
@@ -523,6 +524,19 @@ class Feature(Metagene):
         
         bed_parts = bed_line.strip().split("\t")
         
+        if int(bed_parts[1]) > int(bed_parts[2]):
+            if not short and bed_parts[5] == "-":
+                if not cls.previously_warned_start_bigger_than_end:
+                    print "WARNING: Minus strand start values are bigger than end values.\nConverting to appropriate BED format, assuming that the first (column 2) value is 0-based."
+                    cls.previously_warned_start_bigger_than_end = True
+                start = int(bed_parts[2]) # 1-based already
+                end = int(bed_parts[1]) + 1 # convert to 1-based
+            else:
+                raise MetageneError(bed_line, "Start value is larger than end value.\nBED format requires the start to be less than the end value")
+        else:
+            start = int(bed_parts[1]) + 1 # convert to 1-based
+            end = int(bed_parts[2])
+
         if short:
             if len(bed_parts) < 4:
                 name = "Unknown_name"
@@ -533,16 +547,16 @@ class Feature(Metagene):
                         metagene_object, 
                         name,  # name
                         chromosome_conversion[bed_parts[0]], # alignment style chromosome name
-                        int(bed_parts[1]) + 1, # start 1-based
-                        int(bed_parts[2]), # end 1-based
+                        start, # start 1-based
+                        end, # end 1-based
                         ".")) # strand unknown
         else:
             return (Feature(count_method, 
                         metagene_object, 
                         bed_parts[3],  # name
                         chromosome_conversion[bed_parts[0]], # alignment style chromosome name
-                        int(bed_parts[1]) + 1, # start 1-based
-                        int(bed_parts[2]), # end 1-based
+                        start, # start 1-based
+                        end, # end 1-based
                         bed_parts[5])) # strand
     # end of create_from_bed classmethod
 
@@ -555,12 +569,27 @@ class Feature(Metagene):
         
         # ensure there are no commas in the name line
         name = ";".join(gff_parts[8].split(","))
+        
+        # check if start < end
+        if int(gff_parts[3]) > int(gff_parts[4]):
+            if gff_parts[6] == "-":
+                if not cls.previously_warned_start_bigger_than_end:
+                    print "WARNING: Minus strand start values are bigger than end values.\nConverting to appropriate GFF format."
+                    cls.previously_warned_start_bigger_than_end = True
+                start = int(gff_parts[4])
+                end = int(gff_parts[3])
+            else:
+                raise MetageneError(gff_line, "Start value is larger than end value.\nGFF format requires the start to be less than the end value")
+        else:
+            start = int(gff_parts[3])
+            end = int(gff_parts[4])
+
         return (Feature(count_method, 
                         metagene_object, 
                         name,  # name (potentially messy)
                         chromosome_conversion[gff_parts[0]], # alignment style chromosome name
-                        int(gff_parts[3]), # start 1-based
-                        int(gff_parts[4]), # end 1-based
+                        start, # start 1-based
+                        end, # end 1-based
                         gff_parts[6])) # strand
     # end of create_from_gff classmethod
 # end Feature class    

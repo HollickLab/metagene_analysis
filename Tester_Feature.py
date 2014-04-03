@@ -90,6 +90,33 @@ def test():
         else:
             print "PASSED\t  Create Feature from GFF line ?\t\t{}".format(feature2.get_chromosome_region())
 
+        # create feature from GFF line with start and end swapped
+        try:
+            gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",39,10,".","-",".","second")
+            print "\t  with GFF line:\t{}".format(gffline.strip())
+            feature2 = Feature.create_from_gff(method,metagene, gffline, chromosome_converter)
+            if str(feature2.position_array) != correct_features['gff'][method]: 
+                print "**FAILED**\t  Create Feature from GFF line with swapped start and end ?\t**FAIL**"
+                print "\t  Desired positions:\t{}".format(correct_features['gff'][method])
+                print "\t  Created positions:\t{}".format(feature2.position_array)
+        except MetageneError as err:
+            print "**FAILED**\t  Create Feature from GFF line with swapped start and end ?"
+        else:
+            print "PASSED\t  Create Feature from GFF line with swapped start and end ?\t\t{}".format(feature2.get_chromosome_region())
+        try:
+            gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",39,10,".","+",".","second")
+            print "\t  with GFF line:\t{}".format(gffline.strip())
+            feature2 = Feature.create_from_gff(method,metagene, gffline, chromosome_converter)
+            if str(feature2.position_array) != correct_features['gff'][method]: 
+                print "**FAILED**\t  Do not create Feature from GFF line with swapped start and end, + strand ?\t**FAIL**"
+                print "\t  Desired positions:\t{}".format(correct_features['gff'][method])
+                print "\t  Created positions:\t{}".format(feature2.position_array)
+        except MetageneError as err:
+            print "PASSED\t  Do not create Feature from GFF line with swapped start and end, + strand ?\t\t{}".format(err)
+        else:
+            print "**FAILED**\t  Do not create Feature from GFF line with swapped start and end, + strand ?\t\t{}".format(feature2.get_chromosome_region())
+              
+            
 ##TODO finish complete testing of Feature class
     print "\n##TODO finish testing of Feature class creation\n"
       
