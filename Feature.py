@@ -327,8 +327,7 @@ class Feature(Metagene):
     def adjust_to_metagene(self, feature_array, verbose=False):
         '''Expand or collapse the counts data from interval_array into a metagene
         array via the given shrink factor. -- basically a smoothing function :-)'''
-##TODO: convert to using Decimal library for float math!
-        
+
         metagene_array = []
         
         # initialize metagene_count and remaining_metagene
@@ -407,15 +406,16 @@ class Feature(Metagene):
     # end of adjust_to_metagene
     
        
-    def count_read(self, read_object, count_method, count_gaps=False):
+    def count_read(self, read_object, count_method, count_gaps=False, count_partial_reads=False):
         '''Add a read object to the sense or antisense counts_array. Requires strand
         options of "+", "-" or "."
         
         Only stranded reads (+ or -) can be counted on stranded features.
         
-        Unstranded Features will count in the + direction, but ignore read strand. '''
-
-##TODO - maybe?: option to require full fit of read within the feature 
+        Unstranded Features will count in the + direction, but ignore read strand. 
+        
+        count_gaps=False default to not separate gapped and ungapped reads into different tallies
+        count_partial_reads=False default to ignore reads that only partially overlap with the feature'''
         
         # determine orientation (and if countable)
         if self.strand == ".":
@@ -438,7 +438,14 @@ class Feature(Metagene):
         else:
             subset += ":allreads"
         
-        # confirm that they are on the same chromosome
+        # do we care if the read fully fits?
+        if not count_partial_reads: # yes
+            # does the read extend beyond the window?
+            if read_object.position_array[0] not in self.position_array or read_object.position_array[-1] not in self.position_array: # yes
+                # don't count anything then
+                return False
+        
+        # can count if they are on the same chromosome
         if self.chromosome == read_object.chromosome:
             # get positions from read to potentially count
             positions_to_count = []

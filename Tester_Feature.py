@@ -170,7 +170,7 @@ def test():
                                 
             for r in reads:
                 output += "{}\n".format(r)
-                feature1.count_read(r, count_method) 
+                feature1.count_read(r, count_method, count_partial_reads=True) 
                 output += "{}\n".format(feature1)
                 
             output += feature1.print_metagene(pretty=True)

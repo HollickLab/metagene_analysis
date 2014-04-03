@@ -83,6 +83,10 @@ Requires:
                         help = "Count the start, end or all of a read",
                         choices = ['start','end','all'],
                         default = 'all')
+    parser.add_argument("--count_partial_reads",
+                        help = "Include reads that only partially overlap with region of interest",
+                        action = "store.true",
+                        default = False)
     
     parser.add_argument("--padding",
                         help = "Padding in nt to add around the feature, default = 1000",
@@ -109,7 +113,8 @@ Requires:
     
     parser.add_argument("--count_splicing",
                         help = "Count reads as spliced or unspliced",
-                        action = 'store_true')
+                        action = 'store_true',
+                        default = False)
                         
     parser.add_argument("--include_reads",
                         help = "Include reads with these features, repeat tag up to 4 times. Hint: can ignore if BAM column 2 < 256",
@@ -293,7 +298,7 @@ def metagene_count():
 
                             # count read (if it exists)
                             if created_read:
-                                feature.count_read(read, arguments.count_method)
+                                feature.count_read(read, arguments.count_method, arguments.count_splicing, arguments.count_partial_reads)
 
                     # output the resulting metagene
                     with open("{}.metagene_counts.csv".format(arguments.output_prefix), 'a') as output_file:
