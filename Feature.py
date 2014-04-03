@@ -64,7 +64,6 @@ class Feature(Metagene):
                            the start of the feature and last index is the end of 
                            the feature; for Crick-strand feature:
                            position_array[0] > position_array[len(position_array)]
-##TODO: clean up division system for counts_array dict
         counts_array     : dictionary of counting objects, value array length is
                            the same as the length of the position_array;
                            gapped/ungapped/allreads can be added to strand information
@@ -90,7 +89,6 @@ class Feature(Metagene):
         create_from_gff(count_method, metagene_object, feature_line, chromosome_conversion_table)
 
         '''
-##TODO: add static method to determine and assign the static variable for feature file type
 
     
     __slots__ = ['name', 'chromosome', 'strand', 'metagene_length','counts_array', 'position_array']
@@ -110,83 +108,87 @@ class Feature(Metagene):
         the feature.  Therefore, if a - strand (Crick strand) feature the start
         will be larger than the end.''' 
         
-               
-        if Metagene.confirm_int(start, "Start") and Metagene.confirm_int(end, "End"):
-            start = int(start)
-            end = int(end)
+        try:
+            if start == int(start) and end == int(end):
+                start = int(start)
+                end = int(end)
+            else: 
+                raise MetageneError((start,end), "Start and End values must be integers")
+        except ValueError as err:
+            raise MetageneError((start,end), "Start and End values must be integers")
+                  
+        # Define feature-specific metagene where feature_interval respresents 
+        # the length of the feature NOT the length of the final metagene interval
+        if count_method == 'all':
+            interval = (end - start + 1) # length of feature
+        else:
+            interval = 1 # length of the start (or end) of feature
             
-            # Define feature-specific metagene where feature_interval respresents 
-            # the length of the feature NOT the length of the final metagene interval
-            if count_method == 'all':
-                interval = (end - start + 1) # length of feature
-            else:
-                interval = 1 # length of the start (or end) of feature
+        Metagene.__init__(self,interval, metagene_object.padding['Upstream'], metagene_object.padding['Downstream'])
             
-            Metagene.__init__(self,interval, metagene_object.padding['Upstream'], metagene_object.padding['Downstream'])
-            
-            self.name = name
-            self.chromosome = chromosome  
-            self.strand = strand
-            self.metagene_length = metagene_object.feature_interval
+        self.name = name
+        self.chromosome = chromosome  
+        self.strand = strand
+        self.metagene_length = metagene_object.feature_interval
         
-            # define counts_array dictionary 
-            # key: orientation:gap_counts string 
-            #      where orientation = {'unstranded', 'sense', 'antisense'}
-            #            gap_counts  = {'ungapped', 'gapped, 'allreads'}
-            #      'ungapped' + 'gapped' = 'allreads'
-            #      'sense' + 'antisense' = 'unstranded'
-            # 
-            # values: arrays of self.length initialized to 0
+        # define counts_array dictionary 
+        # key: orientation:gap_counts string 
+        #      where orientation = {'unstranded', 'sense', 'antisense'}
+        #            gap_counts  = {'ungapped', 'gapped, 'allreads'}
+        #      'ungapped' + 'gapped' = 'allreads'
+        #      'sense' + 'antisense' = 'unstranded'
+        # 
+        # values: arrays of self.length initialized to 0
             
-            if self.strand != "+" and self.strand != "-":
-                self.strand = "."
-                orientation = ['unstranded']
-            else:
-                orientation = ['sense', 'antisense']
+        if self.strand != "+" and self.strand != "-":
+            self.strand = "."
+            orientation = ['unstranded']
+        else:
+            orientation = ['sense', 'antisense']
             
-            if gap_counting:
-                gap_counts = ['ungapped', 'gapped']
-            else:
-                gap_counts = ['allreads']
+        if gap_counting:
+            gap_counts = ['ungapped', 'gapped']
+        else:
+            gap_counts = ['allreads']
             
-            self.counts_array = {}
-            for o in orientation:
-                for g in gap_counts:
-                    self.counts_array["{}:{}".format(o,g)] = []
-                    for p in range(self.length):
-                        self.counts_array["{}:{}".format(o,g)].append(0)
+        self.counts_array = {}
+        for o in orientation:
+            for g in gap_counts:
+                self.counts_array["{}:{}".format(o,g)] = []
+                for p in range(self.length):
+                    self.counts_array["{}:{}".format(o,g)].append(0)
             
-            # define position_array
-            # values  : chromosomal 1-based nucleotide positions in 5' to 3' 
-            #           orientation WITH RESPECT TO THE FEATURE
-            # Example :
-            #       + strand:   [10,11,12,13,14,15]
-            #       - strand:   [15,14,13,12,11,10] 
-            # so position_array[0] is always the start of the feature (with upstream padding) 
-            #    position_array[-1] is always the end of the feature (with downstream padding)
-            self.position_array = [] 
-            if self.strand == "-": 
-                # chromosome start = feature end
-                # chromosome end   = feature start
-                if count_method == 'start':
-                    start = end 
-                elif count_method == 'end':
-                    end = start
-                region_start = start - self.padding['Downstream'] # start is really end
-                region_end = end + self.padding['Upstream'] # end is really start
-                positions = range(region_start, region_end + 1) # inclusive list
-                positions.reverse()
-            else:
-                if count_method == 'start':
-                    end = start # set both start and end to the start value
-                elif count_method == 'end':
-                    start = end # set both start and end to the end value
-                region_start = start - self.padding['Upstream'] 
-                region_end = end + self.padding['Downstream'] 
-                positions = range(region_start, region_end + 1) # inclusive list
+        # define position_array
+        # values  : chromosomal 1-based nucleotide positions in 5' to 3' 
+        #           orientation WITH RESPECT TO THE FEATURE
+        # Example :
+        #       + strand:   [10,11,12,13,14,15]
+        #       - strand:   [15,14,13,12,11,10] 
+        # so position_array[0] is always the start of the feature (with upstream padding) 
+        #    position_array[-1] is always the end of the feature (with downstream padding)
+        self.position_array = [] 
+        if self.strand == "-": 
+            # chromosome start = feature end
+            # chromosome end   = feature start
+            if count_method == 'start':
+                start = end 
+            elif count_method == 'end':
+                end = start
+            region_start = start - self.padding['Downstream'] # start is really end
+            region_end = end + self.padding['Upstream'] # end is really start
+            positions = range(region_start, region_end + 1) # inclusive list
+            positions.reverse()
+        else:
+            if count_method == 'start':
+                end = start # set both start and end to the start value
+            elif count_method == 'end':
+                start = end # set both start and end to the end value
+            region_start = start - self.padding['Upstream'] 
+            region_end = end + self.padding['Downstream'] 
+            positions = range(region_start, region_end + 1) # inclusive list
                 
-            for p in positions: 
-                self.position_array.append(p)            
+        for p in positions: 
+            self.position_array.append(p)            
     # end Feature.__init__ function
             
     

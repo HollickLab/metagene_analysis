@@ -57,7 +57,6 @@ def test():
     tests = [ ((10.2, 4, 4), "Caught non-integer float interval ?"),
               (("ten", 4, 4), "Caught non-integer string interval ?"),
               ((0, 3, 3), "Caught interval of zero error ?"),
-##TODO: Make it possible to have negative padding
               ((10, -3, 2), "Caught negative padding error ?"),
               ((10, 4.3, 4), "Caught non-integer float padding ?"),
               ((10, 4, "four"), "Caught non-integer string padding ?") ]

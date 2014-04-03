@@ -74,19 +74,25 @@ class Read():
         
         self.chromosome = chromosome
         
-        if Read.confirm_int(abundance, "Abundance") and int(abundance) >= 0:
-            self.abundance = int(abundance)
-        else:
-            raise MetageneError(abundance, "Abundance must be greater than or equal to 0")
-            
-        if mappings == "Unknown":
-            self.has_mappings = False
-            self.mappings = 1
-        elif Read.confirm_int(mappings, "Mappings") and int(mappings) > 0:
-            self.has_mappings = True
-            self.mappings = int(mappings)
-        else:
-            raise MetageneError(mappings, "Mappings must be greater than or equal to 0")
+        try:
+            if abundance == int(abundance) and int(abundance) >= 0:
+                self.abundance = int(abundance)
+            else:
+                raise MetageneError(abundance, "Abundance must be a positive integer")
+        except ValueError as err:
+            raise MetageneError(abundance, "Abundance must be a positive integer")
+        
+        try:    
+            if mappings == "Unknown":
+                self.has_mappings = False
+                self.mappings = 1
+            elif mappings == int(mappings) and int(mappings) > 0:
+                self.has_mappings = True
+                self.mappings = int(mappings)
+            else:
+                raise MetageneError(mappings, "Mapping must be a positive integer")
+        except ValueError as err:
+            raise MetageneError(mappings, "Mapping must be a positive integer")
     # End of __init__
     
     
@@ -348,19 +354,7 @@ class Read():
             raise MetageneError(sam_sample, "Checking the bam file failed with error: {}".format(sam_sample))  
         return True
     
-    
-    @staticmethod
-    def confirm_int(value, name):
-        try: 
-            if float(value) % 1 == 0:
-                return True
-            else:
-                raise MetageneError(value, "{} ({}) must be an integer".format(name, value))         
-        except ValueError:
-            raise MetageneError(value, "{} ({}) must be an integer".format(name, value))
-    # end of confirm_int     
-    
-    
+
     @staticmethod
     def runPipe(cmds):
         '''runPipe function is from danizgod's post at stackoverflow exchange: 

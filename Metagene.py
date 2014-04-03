@@ -40,13 +40,9 @@ class Metagene(object):
           'Upstream'     : padding upstream (to left) of feature_interval
           'Downstream'   : padding downstream (to right) of feature_interval
         length           : length of entire metagene object
-    
-    Static Methods:
-        confirm_int(value, name)
         '''
 ##TODO: add functionality for the start and end of feature_interval to be constant and internal interval to vary
 ##TODO: add functionality for negative paddings!!
-
 
     # restrict attributes for each instance
     __slots__ = ['feature_interval','padding', 'length']
@@ -56,18 +52,24 @@ class Metagene(object):
         '''Initiate lengths from the interval and padding.'''
         
         # assign interval; must be INT >= 1
-        if Metagene.confirm_int(interval, "interval") and int(interval) >= 1:
-            self.feature_interval = int(interval)
-        else:
-            raise MetageneError(interval, "Minimum interval length is 1.")
+        try:
+            if interval == int(interval) and int(interval) >= 1:
+                self.feature_interval = int(interval)
+            else:
+                raise MetageneError(interval, "Interval must be an interger greater than zero")
+        except ValueError as err:
+            raise MetageneError(interval, "Interval must be an integer greater than zero")
         
         # assign padding; must be INT >= 0  
         self.padding = {'Upstream':0, 'Downstream':0} # set defaults
         for pad in [(padding_upstream, "Upstream"), (padding_downstream, "Downstream")]:
-            if Metagene.confirm_int(pad[0], "{} Padding".format(pad[1])) and int(pad[0]) >= 0:
-                self.padding[pad[1]] = int(pad[0])
-            else:
-                raise MetageneError(pad[0], "Padding values must be positive")   
+            try:
+                if pad[0] == int(pad[0]) and int(pad[0]) >= 0:
+                    self.padding[pad[1]] = int(pad[0])
+                else:
+                    raise MetageneError(pad[0], "Padding values must be positive integers")
+            except ValueError as err:
+                raise MetageneError(pad[0], "Padding values must be positive integers")   
              
         self.length = self.feature_interval + self.padding['Upstream'] + self.padding['Downstream']
 
@@ -76,16 +78,5 @@ class Metagene(object):
     
     def __str__(self):
         return "Upstream:{} -- Interval:{} -- Downstream:{}\tLength:{}".format(self.padding['Upstream'], self.feature_interval, self.padding['Downstream'], self.length)
-        
-    
-    @staticmethod
-    def confirm_int(value, name):
-        try: 
-            if float(value) % 1 == 0:
-                return True
-            else:
-                raise MetageneError(value, "{} ({}) must be an integer".format(name, value))         
-        except ValueError:
-            raise MetageneError(value, "{} ({}) must be an integer".format(name, value))
-    # end of Metagene.confirm_int staticmethod
+
 # end Metagene class
