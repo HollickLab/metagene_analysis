@@ -106,6 +106,9 @@ Requires:
     parser.add_argument("--extract_mappings",
                         help = "Extract number of mappings from NH:i:## tag in BAM file (required for hits normalization)",
                         action = 'store_true')
+    parser.add_argument("--uniquely_mapping",
+                        help = "Flag if reads are all uniquely mapping",
+                        action = 'store_true')
 
     parser.add_argument("-c","--chromosome_names",
                         help = "Chromosome conversion file (feature_chromosome {tab} alignment_chromosome)",
@@ -290,8 +293,7 @@ def metagene_count():
                             (created_read, read) = Read.create_from_sam(samline, 
                                                                         chromosome_conversion_table, 
                                                                         arguments.count_method, 
-                                                                        arguments.extract_abundance, 
-                                                                        not(arguments.extract_mappings),
+                                                                        arguments.uniquely_mapping,
                                                                         arguments.count_secondary_alignments,
                                                                         arguments.count_failed_quality_control,
                                                                         arguments.count_PCR_optical_duplicate,

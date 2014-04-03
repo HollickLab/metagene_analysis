@@ -104,7 +104,6 @@ class Read():
     def create_from_sam(cls, sam_line, 
                              chromosome_conversion, 
                              count_method, 
-                             extract_abundance=False, 
                              unique=False,
                              count_secondary_alignments=True,
                              count_failed_quality_control=False,
@@ -154,14 +153,16 @@ class Read():
             # assign mappings
             if unique:
                 mappings = 1
-            else: # try to extract mappings from NH:i:## tag
+            elif 'NH' in cls.has_sam_tag and cls.has_sam_tag['NH']: # try to extract mappings from NH:i:## tag
                 try:
                     mappings = int(re.search('NH:i:(\d+)', sam_line).group(1))
                 except AttributeError:
                     mappings = "Unknown"
+            else:
+                mappings = "Unknown"
         
             # assign abundance either from NA:i:## tag or as 1 (default)
-            if extract_abundance:
+            if 'NA' in cls.has_sam_tag and cls.has_sam_tag['NA']:
                 try: 
                     abundance = int(re.search('NA:i:(\d+)', sam_line).group(1))
                 except AttributeError:
