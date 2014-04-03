@@ -32,7 +32,7 @@ THE SOFTWARE.
 from Metagene import Metagene
 from MetageneError import MetageneError
 
-import re, math
+import re, math, decimal
 
 class Feature(Metagene):
     '''A Feature is a Metagene object representing an interval of interest  
@@ -157,7 +157,7 @@ class Feature(Metagene):
             for g in gap_counts:
                 self.counts_array["{}:{}".format(o,g)] = []
                 for p in range(self.length):
-                    self.counts_array["{}:{}".format(o,g)].append(0)
+                    self.counts_array["{}:{}".format(o,g)].append(decimal.Decimal(0.0))
             
         # define position_array
         # values  : chromosomal 1-based nucleotide positions in 5' to 3' 
@@ -332,8 +332,8 @@ class Feature(Metagene):
         metagene_array = []
         
         # initialize metagene_count and remaining_metagene
-        metagene_count = 0.0
-        shrink_factor = len(feature_array) / float(self.metagene_length)
+        metagene_count = decimal.Decimal(0.0)
+        shrink_factor = decimal.Decimal(len(feature_array)) / decimal.Decimal(self.metagene_length)
         remaining_metagene_bin = shrink_factor
         
         loop_index = 0 # loop index for verbose option
@@ -342,7 +342,7 @@ class Feature(Metagene):
             # Ideally add in units of 1 (1 bin to 1 metagene_array  position) 
             # unless not possible then start dealing with fractional bins
             
-            remaining_feature_bin = 1.0 # reset remaining feature for new bin
+            remaining_feature_bin = decimal.Decimal(1.0) # reset remaining feature for new bin
             
             if verbose:
                 print "\n  Loop {}:".format(loop_index)
@@ -353,7 +353,7 @@ class Feature(Metagene):
                 loop_index += 1
                 while_index = 0 # while loop index
                       
-            while remaining_feature_bin > 0:
+            while remaining_feature_bin > decimal.Decimal(0.0):
                 # keeping adding from this bin until its empty
                 
                 if verbose:
@@ -369,28 +369,28 @@ class Feature(Metagene):
                         print "      Add Remaining Feature Bin:\t{}".format(bin * remaining_feature_bin)    
                     
                     # add entire remaining feature to metagene
-                    metagene_count += (bin * remaining_feature_bin)
+                    metagene_count += (decimal.Decimal(bin) * remaining_feature_bin)
                     # adjust bin counters 
                     remaining_metagene_bin -= remaining_feature_bin 
-                    remaining_feature_bin = 0
+                    remaining_feature_bin = decimal.Decimal(0.0)
                 else:
                     if verbose:
                         print "      Add Remaining Metagene Bin:\t{}".format(bin * remaining_metagene_bin)
                     
                     # add entire remaining_metagene_bin amount of feature to metagene
-                    metagene_count += (bin * remaining_metagene_bin)
+                    metagene_count += (decimal.Decimal(bin) * remaining_metagene_bin)
                     # adjust bin counters
                     remaining_feature_bin -= remaining_metagene_bin
-                    remaining_metagene_bin = 0
+                    remaining_metagene_bin = decimal.Decimal(0.0)
                 
                 if verbose:
                     print "Remaining_metagene_bin:\t{}".format(remaining_metagene_bin)                    
                 # check to see if new metagene bin is ready to be added to the metagene_array
-                if remaining_metagene_bin == 0:
+                if remaining_metagene_bin == decimal.Decimal(0.0):
                     if verbose:
                         print "      Add Count to Metagene Array:\t{}".format(metagene_count)
                     metagene_array.append(metagene_count)
-                    metagene_count = 0.0
+                    metagene_count = decimal.Decimal(0.0)
                     remaining_metagene_bin = shrink_factor
             # end of while loop through current feature bin
         # end of for loop through feature array
@@ -455,7 +455,7 @@ class Feature(Metagene):
             for p in positions_to_count:
                 # make sure it overlaps with the Feature
                 if p in self.position_array:
-                    self.counts_array[subset][self.position_array.index(p)] += (float(read_object.abundance) / float(read_object.mappings))        
+                    self.counts_array[subset][self.position_array.index(p)] += (decimal.Decimal(read_object.abundance) / decimal.Decimal(read_object.mappings))        
     # end of count_read function        
     
     
