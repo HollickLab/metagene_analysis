@@ -33,6 +33,7 @@ THE SOFTWARE.
 
 import sys, re, datetime, subprocess, math
 import argparse		# to parse the command line arguments
+import timeit # for calculating run times...
 
 # import classes
 from MetageneError import MetageneError
@@ -85,7 +86,7 @@ Requires:
                         default = 'all')
     parser.add_argument("--count_partial_reads",
                         help = "Include reads that only partially overlap with region of interest",
-                        action = "store.true",
+                        action = "store_true",
                         default = False)
     
     parser.add_argument("--padding",
@@ -309,11 +310,15 @@ def metagene_count():
 
     
 if __name__ == "__main__":
+    
+    start_time = timeit.default_timer()
     try:
         metagene_count()    
     except MetageneError as err:
         print "\n{}\n".format(err)
         print "Aborting metagene analysis..."
         sys.exit()
+    end_time = timeit.default_timer()
+    print "Run time:\t{}".format(end_time - start_time)
     
 
