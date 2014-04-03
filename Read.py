@@ -28,7 +28,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 '''
 
-import re
+import re, subprocess
 from Metagene import Metagene
 from Feature import Feature
 from MetageneError import MetageneError
@@ -54,6 +54,11 @@ class Read():
         '''
     
     __slots__ = ['chromosome','strand','position_array','abundance','mappings','has_mappings']
+    
+    # Keeps track of presence/absence of certain SAM file tags (defined by get_sam_tag classmethod)
+    # Key = two-letter tag code (from SAM format specs)
+    # Value = boolean 
+    has_sam_tag = {}
     
     def __init__(self, chromosome, strand, abundance, mappings, positions):
         self.position_array = []
@@ -316,6 +321,32 @@ class Read():
         return array  
           
     # end of build_positions
+
+  
+    @classmethod
+    def set_sam_tag(cls, count_tag, bamfile_name, tag_regex):
+        '''Sets has_sam_tag value for a particular tag'''
+    
+        tag = tag_regex.split(":")[0]
+    
+        (runPipe_worked, sam_sample) = Read.runPipe(['samtools view {}'.format(bamfile_name), 'head -n 10'])
+        if runPipe_worked:
+            num_tags = 0
+            for sam_line in sam_sample:
+                if re.search(tag_regex,sam_line) != None:
+                    num_tags += 1
+            if num_tags == 10:
+                has_sam_value = True
+            else:
+                has_sam_value = False
+                if count_tag:
+                    raise MetageneError(count_tag, "Your alignment file does not have the required {} tag.".format(tag))
+        
+            cls.has_sam_tag[tag] = has_sam_value
+
+        else:
+            raise MetageneError(sam_sample, "Checking the bam file failed with error: {}".format(sam_sample))  
+        return True
     
     
     @staticmethod
@@ -328,4 +359,29 @@ class Read():
         except ValueError:
             raise MetageneError(value, "{} ({}) must be an integer".format(name, value))
     # end of confirm_int     
+    
+    
+    @staticmethod
+    def runPipe(cmds):
+        '''runPipe function is from danizgod's post at stackoverflow exchange: 
+        http://stackoverflow.com/questions/9655841/python-subprocess-how-to-use-pipes-thrice
+    
+        Usage: runPipe(['ls -1','head -n 2', 'head -n 1'])'''
+    
+        try: 
+            p = subprocess.Popen(cmds[0].split(' '), stdin = None, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+            prev = p
+            for cmd in cmds[1:]:
+                p = subprocess.Popen(cmd.split(' '), stdin = prev.stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+                prev = p
+            stdout, stderr = p.communicate()
+            p.wait()
+            returncode = p.returncode
+        except Exception, e:
+            stderr = str(e)
+            returncode = -1
+        if returncode == 0:
+            return (True, stdout.strip().split('\n'))
+        else:
+            return (False, stderr)
 # end of Read class

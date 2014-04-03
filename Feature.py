@@ -96,6 +96,7 @@ class Feature(Metagene):
     __slots__ = ['name', 'chromosome', 'strand', 'metagene_length','counts_array', 'position_array']
     # inherits feature_interval, padding, and length from Metagene
     
+    format = "Unknown" # format of feature file (current options handled are BED, SHORT_BED, and GFF)
     
     def __init__(self, count_method, metagene_object, name, chromosome, start, end, strand, gap_counting=False):
         '''Not normally called directly; use Feature.create(file_format, count_method, 
@@ -457,15 +458,62 @@ class Feature(Metagene):
     
     #******** creating Feature objects from diffent feature file formats (eg BED and GFF) ********#
     @classmethod
-    def create(cls, format, count_method, metagene, feature_line, chromosome_conversion_table):
+    def set_format(cls,feature_file):
+        '''Determines and assigns file format for the feature file.  
+        
+        Currently, distinguishes between BED and GFF file types.
+        BED:        chromosome, start, end, name, score, strand    ==> BED6 or BED12 format (ignores last 6 BED12 columns)
+        BED_SHORT:  chromosome, start, end, name(name is optional) ==> BED3 or BED4 format
+        GFF:        chromosome, label, label, start, end, ?, strand, ?, name/misc (often ; delimited)
+    
+        Distinguishing points: columns 1 & 2 ints and 5 (if it exists) is +, -, or . ==> BED
+                               columns 3 & 4 ints and 6 is +, -, or . and 7 or more columns ==> GFF'''
+    
+        counts = {'BED':0, 'BED_SHORT':0, 'GFF':0, 'UNKNOWN':0}
+        header = 0
+        total = 0
+    
+        try:
+            with open(feature_file, 'r') as infile:
+                for line in infile.readlines(50): # read first 50 bytes
+                    total += 1
+                    if line[0] == "#":
+                        header += 1
+                    elif re.search('\A\S+\t\d+\t\d+\t\S+\t\S+\t[+.-]\s+',line) != None:
+                        counts['BED'] += 1
+                    elif re.search('\A\S+\t\S+\t\S+\t\d+\t\d+\t\S+\t[+.-]\t\S+\t\S+\s+', line) != None:
+                        counts['GFF'] += 1
+                    elif re.search('\A\S+\t\d+\t\d+', line) != None:
+                        counts['BED_SHORT'] += 1
+                    else:
+                        counts['UNKNOWN'] += 1
+        except IOError as err:
+            infile.close()
+            raise MetageneError(err, "Could not open the feature file.")
+    
+        # require that at least 80% of the sampled lines are classified the same to auto-determine
+        values = list(counts.values())
+        keys = list(counts.keys())
+        max_key = keys[values.index(max(values))]
+        if max(values) >= 0.8 * (total - header) and max_key != "UNKNOWN":
+            cls.format = max_key
+        else:
+            raise MetageneError(feature_file, "Could not determine the format of the feature file.")
+        
+        return True
+    # end of set_format classmethod        
+        
+    @classmethod
+    def create(cls, count_method, metagene, feature_line, chromosome_conversion_table):
         '''Calls individual creation methods based on format.'''
-        if format == "GFF":
+        if Feature.format == "GFF":
             return Feature.create_from_gff(count_method, metagene, feature_line, chromosome_conversion_table)
-        elif format == "BED":
+        elif Feature.format == "BED": # BED6 or BED12
             return Feature.create_from_bed(count_method, metagene, feature_line, chromosome_conversion_table)
-        elif format == "BED_SHORT":
+        elif Feature.format == "BED_SHORT":
             return Feature.create_from_bed(count_method, metagene, feature_line, chromosome_conversion_table, short=True)
-            
+        else:
+            raise MetageneError(Feature.format, "Could not determine the format of features in the feature file")
             
     @classmethod
     def create_from_bed(cls, count_method, metagene_object, bed_line, chromosome_conversion, short=False):
