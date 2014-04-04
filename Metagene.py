@@ -84,7 +84,7 @@ class Metagene(object):
         
         output = ""
         if pretty: # add metagene schematic and position numbers (relative to feature start as zero)
-            output += "{0:15s}\t\t".format(self.name)
+            output += "{0:15s}\t\t".format('Metagene')
             for i in range(self.padding['Upstream']):
                 output += "---up-"
             for i in range(self.feature_interval):
@@ -102,7 +102,7 @@ class Metagene(object):
                 output+= "{0:5d},".format(i + self.feature_interval)
             output = output[:-1] + "\n"
         else:
-            output += "{}".format('Position')
+            output += "{},{}".format('Feature','Orientation:Gap')
             for i in range(self.padding['Upstream'], 0, -1):
                 output += ",{}".format(0-i)
             for i in range(self.feature_interval):
