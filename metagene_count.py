@@ -274,6 +274,10 @@ def metagene_count():
     except MetageneError as err:
         print err
         raise MetageneError(err, "Unable to create the feature object")
+    
+    # print out the header line...
+    with open("{}.metagene_counts.csv".format(arguments.output_prefix), 'w') as output_file:
+        output_file.write(metagene.print_full())
      
     # for each feature
     with open(arguments.feature, 'r') as feature_file:

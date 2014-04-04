@@ -33,6 +33,7 @@ from Metagene import Metagene
 from Feature import Feature
 from MetageneError import MetageneError
 
+##TODO: add support for different alignment times (eg. bigwig or bigbed?)
 class Read():
     '''A Read is an object representing a sequencing read as positions along 
     the chromosome to which it aligns.  

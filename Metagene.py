@@ -79,4 +79,36 @@ class Metagene(object):
     def __str__(self):
         return "Upstream:{} -- Interval:{} -- Downstream:{}\tLength:{}".format(self.padding['Upstream'], self.feature_interval, self.padding['Downstream'], self.length)
 
+    def print_full(self, pretty=False):
+        '''Represents the metagene as positions relative to the interval start as 0'''
+        
+        output = ""
+        if pretty: # add metagene schematic and position numbers (relative to feature start as zero)
+            output += "{0:15s}\t\t".format(self.name)
+            for i in range(self.padding['Upstream']):
+                output += "---up-"
+            for i in range(self.feature_interval):
+                output += "--int-"
+            for i in range(self.padding['Downstream']):
+                output += "-down-"
+            output += "\n"
+        
+            output += "{0:15s}:\t".format('Position')
+            for i in range(self.padding['Upstream'], 0, -1):
+                output += "{0:5d},".format(0-i)
+            for i in range(self.feature_interval):
+                output += "{0:5d},".format(i)
+            for i in range(self.padding['Downstream']):
+                output+= "{0:5d},".format(i + self.feature_interval)
+            output = output[:-1] + "\n"
+        else:
+            output += "{}".format('Position')
+            for i in range(self.padding['Upstream'], 0, -1):
+                output += ",{}".format(0-i)
+            for i in range(self.feature_interval):
+                output += ",{}".format(i)
+            for i in range(self.padding['Downstream']):
+                output+= ",{}".format(i + self.feature_interval)
+            output += "\n"
+        return output
 # end Metagene class
