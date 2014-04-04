@@ -1,6 +1,6 @@
 #!/usr/bin/python
-'''The second step of metagene_analysis, metagene_binning.py compiles read
-abundance over genomic features to create the input for metagene_windows.py.
+'''The second step of metagene_analysis, metagene_bin.py compiles read
+abundance over genomic features to create the input for metagene_plot.py.
 Please see README for full details and examples.
 
 Requires:
@@ -34,7 +34,7 @@ import argparse		# to parse the command line arguments
 from MetageneError import MetageneError
 from Metagene import Metagene
 
-PROGRAM = "metagene_binning.py"
+PROGRAM = "metagene_bin.py"
 VERSION = "0.1.2"
 UPDATED = "140403 JRBT"
 
@@ -44,8 +44,8 @@ def get_arguments():
     date = datetime.datetime.now().strftime('%y%m%d-%H%M%S')
     
     parser = argparse.ArgumentParser(description=
-    '''The second step of metagene_analysis, metagene_binning.py compiles read
-abundance over genomic features to create the input for metagene_windows.py.
+    '''The second step of metagene_analysis, metagene_bin.py compiles read
+abundance over genomic features to create the input for metagene_plot.py.
 Please see README for full details and examples.
 
 Requires:
@@ -115,8 +115,8 @@ def read_chunk(file_obj,chunk_size):
         # add incomplete line to beginning of next chunk read
         chunk = chunk_list[-1] + file_obj.read(chunk_size)
 
-def metagene_binning():
-    '''Main program for metagene_binning.py'''
+def metagene_bin():
+    '''Main program for metagene_bin.py'''
    
     arguments = get_arguments()
 
@@ -160,5 +160,5 @@ def metagene_binning():
                     exclusive_end += arguments.step_size
 
 if __name__ == "__main__":
-    metagene_binning()
+    metagene_bin()
 
