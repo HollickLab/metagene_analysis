@@ -154,10 +154,14 @@ multi.t.test <- function (file.1.sense,
     feature.range = windows.sum[windows.sum$Inclusive_Start <= 0 & windows.sum$Inclusive_End >= 0, c("Inclusive_Start", "Inclusive_End")]
                      
     pdf(paste(output.prefix, ".plot.pdf", sep=""))
-    plot(windows.sum$Inclusive_Start, windows.sum$windows.1.sense, type="n", ylim=c(min.yaxis, max.yaxis), xlab=paste("Start position of ",window.size,"bp window relative to ",feature.name," (nt)", sep=""), ylab="Window Coverage in Reads per Million Mapped")
-    abline(v=feature.range[1], col="darkgrey")
-    abline(v=feature.range[2], col="darkgrey")
+    plot(windows.sum$Inclusive_Start, windows.sum$windows.1.sense, type="n", ylim=c(min.yaxis, max.yaxis), xlab=paste("Start position of ",window.size,"bp window relative to ",feature.name," (nt)", sep=""), ylab="Window Coverage in Reads per Million Mapped", xaxs="i", yaxs="i")
+    #draw feature setup (only works now with start position...
     abline(h=0, col="darkgrey")
+    rect(0, -0.01*(max.yaxis-min.yaxis), max(windows.sum$Inclusive_End), 0.01*(max.yaxis-min.yaxis), col="darkgrey", border="darkgrey")
+    # draw region including the start feature
+    rect(min(feature.range$Inclusive_Start), min.yaxis, max(feature.range$Inclusive_End), max.yaxis, col="darkgrey", border="darkgrey")
+    abline(v=0, col="black")
+    
     points(windows.sum$Inclusive_Start, windows.sum$windows.1.sense, type="l", col="blue", lwd=2)
     points(windows.sum$Inclusive_Start, windows.sum$windows.1.antisense, type="l", col="blue", lwd=2)
     points(windows.sum$Inclusive_Start, windows.sum$windows.2.sense, type="l", col="green", lwd=2)

@@ -134,6 +134,7 @@ def metagene_bin():
         with open(infile, 'r') as inf:
             header = inf.readline().strip().split(",")
             positions = header[2:] # positions relative to gene start
+            print "Positions:\t{}".format(positions)
             
             for counts_line in read_chunk(inf, 1024):
                 counts_parts = counts_line.strip().split(",")
