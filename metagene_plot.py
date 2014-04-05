@@ -30,7 +30,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 '''
 
-import sys, subprocess, re, datetime
+import sys, subprocess, re, datetime, os
 import argparse		# to parse the command line arguments
 
 PROGRAM = "metagene_plot.py"
@@ -88,26 +88,31 @@ if __name__ == "__main__":
     arguments = get_arguments()
     
     try:
-        parsed_file_a1 = re.findall('windows.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.file_a[0])[0]
-        parsed_file_a2 = re.findall('windows.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.file_a[1])[0]
-        parsed_file_b1 = re.findall('windows.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.file_b[0])[0]
-        parsed_file_b2 = re.findall('windows.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.file_b[1])[0]
+        parsed_file_a1 = re.findall('.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.fileset_a[0])[0]
+        parsed_file_a2 = re.findall('.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.fileset_a[1])[0]
+        parsed_file_b1 = re.findall('.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.fileset_b[0])[0]
+        parsed_file_b2 = re.findall('.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.fileset_b[1])[0]
     except IndexError as err:
         raise MetageneError(err, "You must specify two files for each group -a and -b")
         
     window_size = int(parsed_file_a1[0])
     step_size = int(parsed_file_a1[1])
-     
-    subprocess.call(['Rscript', '-e', 'multiple_t_test.R', '--args', 
-                     arguments.file_a[0],        # file.1.sense
-                     arguments.file_a[1],        # file.1.antisense
-                     arguments.file_b[0],        # file.2.sense
-                     arguments.file_b[1],        # file.2.antisense
-                     arguments.normalization_a,  # normalization.1
-                     arguments.normalization_b,  # normalization.2
-                     arguments.output,           # output.prefix
-                     window_size,                # window.size
-                     step_size,                  # window.step
-                     arguments.feature_counted]) # feature.name
+    
+    path_to_script = os.path.dirname(os.path.realpath(__file__))
+
+    path_to_script += "/multiple_t_test.R"
+
+    subprocess.call(['Rscript', 
+                     path_to_script, 
+                     str(arguments.fileset_a[0]),     # file.1.sense
+                     str(arguments.fileset_a[1]),     # file.1.antisense
+                     str(arguments.fileset_b[0]),     # file.2.sense
+                     str(arguments.fileset_b[1]),     # file.2.antisense
+                     str(arguments.normalization_a),  # normalization.1
+                     str(arguments.normalization_b),  # normalization.2
+                     str(arguments.output_prefix),    # output.prefix
+                     str(window_size),                # window.size
+                     str(step_size),                  # window.step
+                     str(arguments.feature_counted)]) # feature.name
                      
     print "Finished plotting"

@@ -69,6 +69,9 @@ multi.t.test <- function (file.1.sense,
     
     # remove factoring from windows
     windows.sum$Window <- 0:(total.windows - 1) # keep in parentheses for order of operations!!
+    # add Inclusive_Start
+    windows.sum$Inclusive_Start <- windows.1.sense[1:total.windows, "Inclusive_Start"]
+    windows.sum$Inclusive_End   <- windows.1.sense[1:total.windows, "Inclusive_End"]
     
     # Normalize windows
     windows.sum[,c("windows.1.sense","windows.1.antisense")] <- (windows.sum[,c("windows.1.sense","windows.1.antisense")] / normalization.1) * million   
@@ -89,6 +92,8 @@ multi.t.test <- function (file.1.sense,
     # Null Hypothesis = same mean (mu=0)
     # unpaired, unequal variance, two-sided t-test (Welch Two Sample t-test)
     t.test.results.sense <- data.frame(Window = 0:(total.windows-1),
+                                       Inclusive_Start = windows.1.sense[1:total.windows, "Inclusive_Start"],
+                                       Inclusive_End   = windows.1.sense[1:total.windows, "Inclusive_End"],
         p.value = sapply(0:(total.windows-1), function (x,m,n) t.test(m[m$Window == x, "Abundance"], n[n$Window == x, "Abundance"], paired=FALSE, var.equal = FALSE, conf.level = 0.95, mu = 0, alternative = "two.sided")$p.value, m=windows.1.sense, n=windows.2.sense))
 
     # Holm-Bonferoni correction for multiple hypotheses
@@ -110,6 +115,8 @@ multi.t.test <- function (file.1.sense,
 
 
     t.test.results.antisense <- data.frame(Window = 0:(total.windows-1),
+                                           Inclusive_Start = windows.1.antisense[1:total.windows, "Inclusive_Start"],
+                                           Inclusive_End   = windows.1.antisense[1:total.windows, "Inclusive_End"],
         p.value = sapply(0:(total.windows-1), function (x,m,n) t.test(m[m$Window == x, "Abundance"], n[n$Window == x, "Abundance"], paired=FALSE, var.equal = FALSE, conf.level = 0.95, mu = 0, alternative = "two.sided")$p.value, m=windows.1.antisense, n=windows.2.antisense))
 
     # Holm-Bonferoni correction for multiple hypotheses
@@ -129,7 +136,7 @@ multi.t.test <- function (file.1.sense,
 
     t.test.correction.antisense$reject.null <- t.test.correction.antisense$p.value < t.test.correction.antisense$cutoff
 
-
+    
     # outputs
     write.table(t.test.correction.sense, 
                 file = paste(output.prefix,".sense_pvalues.csv",sep=""),
@@ -144,32 +151,32 @@ multi.t.test <- function (file.1.sense,
                 row.names = FALSE,
                 sep = "\t")            
     
-    has.feature <- data.frame(Window = 0:(total.windows - 1),
-                              Start = 0:(total.windows -1) * window.step,
-                              End   = (0:(total.windows -1) * window.step) + window.size - 1)
-    feature.range <- (range(has.feature[has.feature$Start <= 1000 & 1000 <= has.feature$End, "Window"])) * window.step - 1000
+    feature.range = windows.sum[windows.sum$Inclusive_Start <= 0 & windows.sum$Inclusive_End >= 0, c("Inclusive_Start", "Inclusive_End")]
                      
     pdf(paste(output.prefix, ".plot.pdf", sep=""))
-    plot((windows.sum$Window * window.step) - 1000, windows.sum$windows.1.sense, type="n", ylim=c(min.yaxis, max.yaxis), xlab=paste("Start position of ",window.size,"bp window relative to ",feature.name," (nt)", sep=""), ylab="Window Coverage in Reads per Million Mapped")
+    plot(windows.sum$Inclusive_Start, windows.sum$windows.1.sense, type="n", ylim=c(min.yaxis, max.yaxis), xlab=paste("Start position of ",window.size,"bp window relative to ",feature.name," (nt)", sep=""), ylab="Window Coverage in Reads per Million Mapped")
     abline(v=feature.range[1], col="darkgrey")
     abline(v=feature.range[2], col="darkgrey")
     abline(h=0, col="darkgrey")
-    points((windows.sum$Window * window.step) - 1000, windows.sum$windows.1.sense, type="l", col="blue", lwd=2)
-    points((windows.sum$Window * window.step) - 1000, windows.sum$windows.1.antisense, type="l", col="blue", lwd=2)
-    points((windows.sum$Window * window.step) - 1000, windows.sum$windows.2.sense, type="l", col="green", lwd=2)
-    points((windows.sum$Window * window.step) - 1000, windows.sum$windows.2.antisense, type="l", col="green", lwd=2)
+    points(windows.sum$Inclusive_Start, windows.sum$windows.1.sense, type="l", col="blue", lwd=2)
+    points(windows.sum$Inclusive_Start, windows.sum$windows.1.antisense, type="l", col="blue", lwd=2)
+    points(windows.sum$Inclusive_Start, windows.sum$windows.2.sense, type="l", col="green", lwd=2)
+    points(windows.sum$Inclusive_Start, windows.sum$windows.2.antisense, type="l", col="green", lwd=2)
 
     # add segments for statistically signficant regions
-
-    segments(x0=(c(t.test.correction.sense[t.test.correction.sense$reject.null,"Window"]) * window.step) - 1000, 
-             y0=rep(0.99 * max.yaxis, sum(t.test.correction.sense$reject.null)), 
-             x1=(c(t.test.correction.sense[t.test.correction.sense$reject.null,"Window"]) * window.step) - 1000 + window.size, 
-             col="red", lwd=3)
+    if (sum(t.test.correction.sense$reject.null, na.rm=T) > 0) {
+        segments(x0=(c(t.test.correction.sense[t.test.correction.sense$reject.null,"Window"]) * window.step) - 1000, 
+                y0=rep(0.99 * max.yaxis, sum(t.test.correction.sense$reject.null)), 
+                x1=(c(t.test.correction.sense[t.test.correction.sense$reject.null,"Window"]) * window.step) - 1000 + window.size, 
+                col="red", lwd=3)
+    } 
     
+    if (sum(t.test.correction.sense$reject.null, na.rm=T) > 0) {
     segments(x0=(c(t.test.correction.antisense[t.test.correction.antisense$reject.null,"Window"]) * window.step) - 1000, 
              y0=rep(0.99 * min.yaxis, sum(t.test.correction.antisense$reject.null)), 
              x1=(c(t.test.correction.antisense[t.test.correction.antisense$reject.null,"Window"]) * window.step) - 1000 + window.size, 
              col="red", lwd=3)
+    }
     dev.off()
 }
 
@@ -178,9 +185,9 @@ multi.t.test(args[1], #file.1.sense
              args[2], #file.1.antisense
              args[3], #file.2.sense 
              args[4], #file.2.antisense
-             args[5], #normalization.1, 
-             args[6], #normalization.2, 
+             as.numeric(args[5]), #normalization.1, 
+             as.numeric(args[6]), #normalization.2, 
              args[7], #output.prefix, 
-             args[8], #window.size, 
-             args[9], #window.step,
+             as.numeric(args[8]), #window.size, 
+             as.numeric(args[9]), #window.step,
              args[10]) #feature.name)
