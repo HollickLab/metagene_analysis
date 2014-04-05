@@ -1,5 +1,5 @@
 #!/usr/bin/python
-'''MetageneError.py error class for metagene analysis
+"""MetageneError.py error class for metagene analysis
 
 Requires:
     python 2 (https://www.python.org/downloads/)
@@ -25,15 +25,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-'''
+"""
 
 ##TODO: add more detail to MetageneErrors (maybe subclasses of error types...)
 class MetageneError(Exception):
-    '''For errors specific to metagene analysis.'''
-    def __init__(self, obj, message):
-        self.obj = obj
+    """Create metagene analysis errors."""
+    def __init__(self, message):
         self.message = message
-    
     
     def __str__(self):
         return "MetageneError: {}".format(self.message)
