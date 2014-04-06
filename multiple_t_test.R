@@ -40,22 +40,28 @@ multi.t.test <- function (file.1.sense,
                           output.prefix, 
                           window.size, 
                           window.step,
-                          feature.name) {
+                          feature.name,
+                          upstream.start,
+                          upstream.end,
+                          interval.start,
+                          interval.end,
+                          downstream.start,
+                          downstream.end) {
     options(scipen=9999) # keep things out of scientific notation
     million = 1000000
     
     # load data
-    windows.1.sense <- read.table(file.1.sense, header=TRUE, sep=",")
+    windows.1.sense <- read.table(file.1.sense, header=TRUE, sep=",", skip=1)
     windows.1.sense$Window <- factor(windows.1.sense$Window)
     total.windows <- length(levels(windows.1.sense$Window))
     
-    windows.1.antisense <- read.table(file.1.antisense, header=TRUE, sep=",")
+    windows.1.antisense <- read.table(file.1.antisense, header=TRUE, sep=",", skip=1)
     windows.1.antisense$Window <- factor(windows.1.antisense$Window)
     
-    windows.2.sense <- read.table(file.2.sense, header=TRUE, sep=",")
+    windows.2.sense <- read.table(file.2.sense, header=TRUE, sep=",", skip=1)
     windows.2.sense$Window <- factor(windows.2.sense$Window)
     
-    windows.2.antisense <- read.table(file.2.antisense, header=TRUE, sep=",")
+    windows.2.antisense <- read.table(file.2.antisense, header=TRUE, sep=",", skip=1)
     windows.2.antisense$Window <- factor(windows.2.antisense$Window)
 
     # create summary file for plots
@@ -151,16 +157,26 @@ multi.t.test <- function (file.1.sense,
                 row.names = FALSE,
                 sep = "\t")            
     
-    feature.range = windows.sum[windows.sum$Inclusive_Start <= 0 & windows.sum$Inclusive_End >= 0, c("Inclusive_Start", "Inclusive_End")]
+    start.range = windows.sum[windows.sum$Inclusive_Start <= interval.start & windows.sum$Inclusive_End >= interval.start, c("Inclusive_Start", "Inclusive_End")]
+    end.range = windows.sum[windows.sum$Inclusive_Start <= interval.end & windows.sum$Inclusive_End >= interval.end, c("Inclusive_Start", "Inclusive_End")]
                      
     pdf(paste(output.prefix, ".plot.pdf", sep=""))
     plot(windows.sum$Inclusive_Start, windows.sum$windows.1.sense, type="n", ylim=c(min.yaxis, max.yaxis), xlab=paste("Start position of ",window.size,"bp window relative to ",feature.name," (nt)", sep=""), ylab="Window Coverage in Reads per Million Mapped", xaxs="i", yaxs="i")
-    #draw feature setup (only works now with start position...
+    #draw feature setup 
     abline(h=0, col="darkgrey")
-    rect(0, -0.01*(max.yaxis-min.yaxis), max(windows.sum$Inclusive_End), 0.01*(max.yaxis-min.yaxis), col="darkgrey", border="darkgrey")
+    width <- c(-0.01*(max.yaxis-min.yaxis), 0.01*(max.yaxis-min.yaxis))
+    if (feature.name == "TSS") {
+        rect(interval.start, width[1], downstream.end, width[2], col="darkgrey", border="darkgrey")
+    } else if (feature.name == "end") {
+        rect(upstream.start, width[1], interval.end, width[2], col="darkgrey", border="darkgrey")
+    } else {
+        rect(interval.start, width[1], interval.end, width[2], col="darkgrey", border="darkgrey")
+    }
     # draw region including the start feature
-    rect(min(feature.range$Inclusive_Start), min.yaxis, max(feature.range$Inclusive_End), max.yaxis, col="darkgrey", border="darkgrey")
-    abline(v=0, col="black")
+    rect(min(start.range$Inclusive_Start), min.yaxis, max(start.range$Inclusive_End), max.yaxis, col="darkgrey", border="darkgrey")
+    rect(min(end.range$Inclusive_Start), min.yaxis, max(end.range$Inclusive_End), max.yaxis, col="darkgrey", border="darkgrey")
+    abline(v=interval.start, col="black")
+    abline(v=interval.end, col="black")
     
     points(windows.sum$Inclusive_Start, windows.sum$windows.1.sense, type="l", col="blue", lwd=2)
     points(windows.sum$Inclusive_Start, windows.sum$windows.1.antisense, type="l", col="blue", lwd=2)
@@ -169,29 +185,35 @@ multi.t.test <- function (file.1.sense,
 
     # add segments for statistically signficant regions
     if (sum(t.test.correction.sense$reject.null, na.rm=T) > 0) {
-        segments(x0=(c(t.test.correction.sense[t.test.correction.sense$reject.null,"Window"]) * window.step) - 1000, 
+        segments(x0=t.test.correction.sense[t.test.correction.sense$reject.null,"Inclusive_Start"], 
                 y0=rep(0.99 * max.yaxis, sum(t.test.correction.sense$reject.null)), 
-                x1=(c(t.test.correction.sense[t.test.correction.sense$reject.null,"Window"]) * window.step) - 1000 + window.size, 
+                x1=t.test.correction.sense[t.test.correction.sense$reject.null,"Inclusive_End"], 
                 col="red", lwd=3)
     } 
     
     if (sum(t.test.correction.sense$reject.null, na.rm=T) > 0) {
-    segments(x0=(c(t.test.correction.antisense[t.test.correction.antisense$reject.null,"Window"]) * window.step) - 1000, 
+    segments(x0=t.test.correction.antisense[t.test.correction.antisense$reject.null,"Inclusive_Start"], 
              y0=rep(0.99 * min.yaxis, sum(t.test.correction.antisense$reject.null)), 
-             x1=(c(t.test.correction.antisense[t.test.correction.antisense$reject.null,"Window"]) * window.step) - 1000 + window.size, 
+             x1=t.test.correction.antisense[t.test.correction.antisense$reject.null,"Inclusive_End"], 
              col="red", lwd=3)
     }
     dev.off()
 }
 
 
-multi.t.test(args[1], #file.1.sense
-             args[2], #file.1.antisense
-             args[3], #file.2.sense 
-             args[4], #file.2.antisense
-             as.numeric(args[5]), #normalization.1, 
-             as.numeric(args[6]), #normalization.2, 
-             args[7], #output.prefix, 
-             as.numeric(args[8]), #window.size, 
-             as.numeric(args[9]), #window.step,
-             args[10]) #feature.name)
+multi.t.test(args[1],              #file.1.sense
+             args[2],              #file.1.antisense
+             args[3],              #file.2.sense 
+             args[4],              #file.2.antisense
+             as.numeric(args[5]),  #normalization.1, 
+             as.numeric(args[6]),  #normalization.2, 
+             args[7],              #output.prefix, 
+             as.numeric(args[8]),  #window.size, 
+             as.numeric(args[9]),  #window.step,
+             args[10],             #feature.name
+             as.numeric(args[11]), #upstream.start
+             as.numeric(args[12]), #upstream.end
+             as.numeric(args[13]), #interval.start
+             as.numeric(args[14]), #interval.end
+             as.numeric(args[15]), #downstream.start
+             as.numeric(args[16])) #downstream.end

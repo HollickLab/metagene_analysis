@@ -30,12 +30,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 '''
 
-import sys, subprocess, re, datetime, os
+import sys
+import subprocess
+import re
+import datetime
+import os
 import argparse		# to parse the command line arguments
 
 PROGRAM = "metagene_plot.py"
 VERSION = "0.1.0"
-UPDATED = "1404034 JRBT"
+UPDATED = "140406 JRBT"
 
 def get_arguments():
     '''Collect and parse information from the user's command line arguments.'''
@@ -94,6 +98,21 @@ if __name__ == "__main__":
         parsed_file_b2 = re.findall('.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.fileset_b[1])[0]
     except IndexError as err:
         raise MetageneError(err, "You must specify two files for each group -a and -b")
+    
+    # extract metagene information from first file
+    with open(arguments.fileset_a[0]) as inf:
+        metagene = re.split('[\s-]+', inf.readline().strip())
+        metagene_parts = {}
+        for part in metagene:
+            search = re.search('([A-Za-z]+):(\d+)', part)
+            if search is not None:
+                metagene_parts[search.group(1)] = int(search.group(2))
+        upstream_start = -metagene_parts['Upstream']
+        upstream_end = -1
+        interval_start = 0
+        interval_end = metagene_parts['Interval'] - 1
+        downstream_start = metagene_parts['Interval']
+        downstream_end = metagene_parts['Interval'] + metagene_parts['Downstream'] - 1
         
     window_size = int(parsed_file_a1[0])
     step_size = int(parsed_file_a1[1])
@@ -113,6 +132,12 @@ if __name__ == "__main__":
                      str(arguments.output_prefix),    # output.prefix
                      str(window_size),                # window.size
                      str(step_size),                  # window.step
-                     str(arguments.feature_counted)]) # feature.name
+                     str(arguments.feature_counted),  # feature.name
+                     str(upstream_start),
+                     str(upstream_end),
+                     str(interval_start),
+                     str(interval_end),
+                     str(downstream_start),
+                     str(downstream_end)]) 
                      
     print "Finished plotting"

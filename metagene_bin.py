@@ -29,14 +29,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 '''
 
-import sys, re, datetime, subprocess, math
+import sys
+import re
+import datetime
+import subprocess
+import math
 import argparse		# to parse the command line arguments
+
 from MetageneError import MetageneError
 from Metagene import Metagene
+from metageneMethods import read_chunk
 
 PROGRAM = "metagene_bin.py"
 VERSION = "0.1.2"
-UPDATED = "140403 JRBT"
+UPDATED = "140406 JRBT"
 
 def get_arguments():
     '''Collect and parse information from the user's command line arguments.'''
@@ -78,7 +84,6 @@ Requires:
     
     return parser.parse_args()
 
-
 def build_output_filenames(infile, prefix, window_size, step_size, separate_groups):
     
     outfiles = {}
@@ -86,13 +91,14 @@ def build_output_filenames(infile, prefix, window_size, step_size, separate_grou
     # determine orientation:gap combos
     groups = []
     with open(infile) as inf:
+        metagene = inf.readline()
         header = inf.readline()
         group = inf.readline().strip().split(",")[1]
         while group not in groups:
             groups.append(group)
             group = inf.readline().strip().split(",")[1]
     
-    basefile = "{}.{}bpX{}bp".format(prefix, window_size, step_size)
+    basefile = "{}.{}.{}bpX{}bp".format(prefix, infile[:-4], window_size, step_size)
     if separate_groups:
         for g in groups:
             outfiles[g] = "{}.{}.csv".format(basefile, "_".join(g.split(":")))
@@ -101,19 +107,6 @@ def build_output_filenames(infile, prefix, window_size, step_size, separate_grou
             outfiles[g] = "{}.all.csv".format(basefile)
     
     return outfiles
-
-def read_chunk(file_obj,chunk_size):
-    '''Read in file by chunk_size chunks returning one line at a time.'''
-    # get first chunk
-    chunk = file_obj.read(chunk_size)
-    # continue looping until a chunk is just EOF (empty line)
-    while chunk:
-        chunk_list = chunk.split("\n")
-        # yield all but last, potentially incomplete line
-        for c in chunk_list[:-1]:
-            yield c
-        # add incomplete line to beginning of next chunk read
-        chunk = chunk_list[-1] + file_obj.read(chunk_size)
 
 def metagene_bin():
     '''Main program for metagene_bin.py'''
@@ -126,15 +119,15 @@ def metagene_bin():
         # returns a dict of file names with keys of orientation:gap_counting
         output_files = build_output_filenames(infile, arguments.output_prefix, arguments.window_size, arguments.step_size, arguments.separate_groups)
         
-        # Write header to each file
-        for output in output_files.values():
-            with open(output, 'w') as outf:
-                outf.write("Gene,Orientation,Gapped,Window,Inclusive_Start,Inclusive_End,Abundance\n")
-
         with open(infile, 'r') as inf:
+            metagene = inf.readline()
+            for output in output_files.values():
+                with open(output, 'w') as outf:
+                    outf.write(metagene) # needed for plotting
+                    outf.write("Gene,Orientation,Gapped,Window,Inclusive_Start,Inclusive_End,Abundance\n")
+            
             header = inf.readline().strip().split(",")
             positions = header[2:] # positions relative to gene start
-            print "Positions:\t{}".format(positions)
             
             for counts_line in read_chunk(inf, 1024):
                 counts_parts = counts_line.strip().split(",")
