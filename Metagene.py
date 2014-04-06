@@ -55,13 +55,13 @@ class Metagene(object):
         print_full -- Return metagene positions relative to interval start. 
                       (instead of default summary)
     """
+    
 ##TODO: add functionality for the start and end of feature_interval to be constant and internal interval to vary
 ##TODO: add functionality for negative paddings!!
-
+    
     # restrict attributes for each instance
     __slots__ = ['feature_interval','padding', 'length']
-    
-    
+        
     def __init__(self, interval=1, padding_upstream=0, padding_downstream=0):
         """Return metagene instance defined by interval and padding sizes.
         
@@ -79,10 +79,8 @@ class Metagene(object):
             self.padding['Downstream'] = int(padding_downstream)
         self.length = (self.padding['Upstream'] +
                        self.feature_interval + 
-                       self.padding['Downstream'])
-
+                       self.padding['Downstream']) 
     # end __init__ function
-    
     
     def __str__(self):
         return "Upstream:{} -- Interval:{} -- Downstream:{}\tLength:{}".format(self.padding['Upstream'], self.feature_interval, self.padding['Downstream'], self.length)
@@ -93,7 +91,6 @@ class Metagene(object):
         Keyword arguments:
         pretty -- return human readable version (default False)
         """
-        
         output = ""
         # add metagene schematic and position numbers 
         # (relative to feature start as zero)
