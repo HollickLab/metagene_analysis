@@ -28,6 +28,8 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 
+import subprocess
+
 from MetageneError import MetageneError
 
 def confirm_integer(value, descriptor, minimum=None, maximum=None):
@@ -65,7 +67,32 @@ def confirm_integer(value, descriptor, minimum=None, maximum=None):
             raise MetageneError("{} is greater than maximum: {}".format(
                 descriptor, maximum))
     # end of confirm_integer function
+
+def runPipe(cmds):
+    """Run a set of bash commands and return (boolean, array of lines).
     
+    runPipe function is from danizgod's post at stackoverflow exchange: 
+    http://stackoverflow.com/questions/9655841/python-subprocess-how-to-use-pipes-thrice
+    
+    Usage: runPipe(['ls -1','head -n 2', 'head -n 1'])
+    """
+    try: 
+        p = subprocess.Popen(cmds[0].split(' '), stdin = None, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        prev = p
+        for cmd in cmds[1:]:
+            p = subprocess.Popen(cmd.split(' '), stdin = prev.stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+            prev = p
+        stdout, stderr = p.communicate()
+        p.wait()
+        returncode = p.returncode
+    except Exception, e:
+        stderr = str(e)
+        returncode = -1
+    if returncode == 0:
+        return (True, stdout.strip().split('\n'))
+    else:
+        return (False, stderr)
+# end of runPipe
     
     
     

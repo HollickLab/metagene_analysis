@@ -38,7 +38,7 @@ good_input = {}
 bad_input = {}
 
 def setup():
-    """Create fixtures with expected results"""
+    """Create fixtures"""
     
     good_input['even_padding'] = (9,3,3)
     good_input['uneven_padding'] = (11,2,5)
