@@ -38,7 +38,15 @@ def test():
         
     print "\n**** Testing the Feature class ****\n"  
     print "**** Testing Feature creation ****\n"
-        
+    
+    # Define chromosome sizes
+    header = [ "@HD\tVN:1.0\tSO:unsorted",
+               "@SQ\tSN:chr1\tLN:300",
+               "@SQ\tSN:chr2\tLN:200",
+               "@PG\tID:test\tVN:0.1" ]
+    Read.process_set_chromosome_sizes(header)
+    Feature.process_set_chromosome_conversion([ "1\tchr1", "2\tchr2" ])
+    
     correct_features = {'bed':{}, 'gff':{} }
     correct_features['bed']['all'] = "[17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42]"
     correct_features['bed']['start'] = "[17, 18, 19, 20, 21, 22, 23]"
@@ -47,26 +55,24 @@ def test():
     correct_features['gff']['start'] = "[43, 42, 41, 40, 39, 38, 37]"
     correct_features['gff']['end'] = "[14, 13, 12, 11, 10, 9, 8]"
          
-    chromosome_converter = {"1":"chr1", "2":"chr2"}
-                                
     for method in ['all','start','end']:
         print "\nTesting feature_count option: ****{}****".format(method)
             
         if method == 'all':
             metagene = Metagene(10,4,2)
             print "\t  with Metagene:\t{}".format(metagene)
-            print "\t  with chromosome conversions:\t{}".format(chromosome_converter)
+            print "\t  with chromosome conversions:\t{}".format(Feature.chromosome_conversion)
         else:
             metagene = Metagene(1,4,2)
             print "\t  with Metagene:\t{}".format(metagene)
-            print "\t  with chromosome conversions:\t{}".format(chromosome_converter)
+            print "\t  with chromosome conversions:\t{}".format(Feature.chromosome_conversion)
         
         
         # create feature from BED line
         try:
             bedline = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
             print "\t  with BED line:\t{}".format(bedline.strip())
-            feature1 = Feature.create_from_bed(method, metagene, bedline, chromosome_converter)
+            feature1 = Feature.create_from_bed(method, metagene, bedline)
             if str(feature1.position_array) != correct_features['bed'][method]: 
                 print "**FAILED**\t  Create Feature from BED line ?"
                 print "\t  Desired positions:\t{}".format(correct_features['bed'][method])
@@ -80,7 +86,7 @@ def test():
         try:
             gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",10,39,".","-",".","second")
             print "\t  with GFF line:\t{}".format(gffline.strip())
-            feature2 = Feature.create_from_gff(method,metagene, gffline, chromosome_converter)
+            feature2 = Feature.create_from_gff(method,metagene, gffline)
             if str(feature2.position_array) != correct_features['gff'][method]: 
                 print "**FAILED**\t  Create Feature from GFF line ?\t**FAIL**"
                 print "\t  Desired positions:\t{}".format(correct_features['gff'][method])
@@ -94,7 +100,7 @@ def test():
         try:
             gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",39,10,".","-",".","second")
             print "\t  with GFF line:\t{}".format(gffline.strip())
-            feature2 = Feature.create_from_gff(method,metagene, gffline, chromosome_converter)
+            feature2 = Feature.create_from_gff(method,metagene, gffline)
             if str(feature2.position_array) != correct_features['gff'][method]: 
                 print "**FAILED**\t  Create Feature from GFF line with swapped start and end ?\t**FAIL**"
                 print "\t  Desired positions:\t{}".format(correct_features['gff'][method])
@@ -106,7 +112,7 @@ def test():
         try:
             gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",39,10,".","+",".","second")
             print "\t  with GFF line:\t{}".format(gffline.strip())
-            feature2 = Feature.create_from_gff(method,metagene, gffline, chromosome_converter)
+            feature2 = Feature.create_from_gff(method,metagene, gffline)
             if str(feature2.position_array) != correct_features['gff'][method]: 
                 print "**FAILED**\t  Do not create Feature from GFF line with swapped start and end, + strand ?\t**FAIL**"
                 print "\t  Desired positions:\t{}".format(correct_features['gff'][method])
@@ -143,14 +149,14 @@ def test():
     for method in ['all','start','end']:
         if method == 'all':
             print "\t  with Metagene:\t{}".format(metagene[method])
-            print "\t  with chromosome conversions:\t{}".format(chromosome_converter)
+            print "\t  with chromosome conversions:\t{}".format(Feature.chromosome_conversion)
         else:
             print "\t  with Metagene:\t{}".format(metagene[method])
-            print "\t  with chromosome conversions:\t{}".format(chromosome_converter)
+            print "\t  with chromosome conversions:\t{}".format(Feature.chromosome_conversion)
        
         print "\nTesting feature_count option: ****{}****".format(method)
         feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
-        feature1 = Feature.create_from_bed(method, metagene[method], feature_line, chromosome_converter)
+        feature1 = Feature.create_from_bed(method, metagene[method], feature_line)
         print "\tFeature:\t{}".format(feature1.position_array)
         
         reads = []
@@ -181,7 +187,7 @@ def test():
                 print "\tExpected:\n{}".format(expected[method][count_method])
                 print "\tActual  :\n{}".format(feature1.print_metagene())
                 print "\tSummary of run:\n{}".format(output)
-            feature1 = Feature.create_from_bed(method, metagene[method], feature_line, chromosome_converter) # zero out counter for next round
+            feature1 = Feature.create_from_bed(method, metagene[method], feature_line) # zero out counter for next round
         
     try:
         unstranded_read = Read("chr1", ".", 10, 1, [18,19,20,21,22,23,24,25])
@@ -193,7 +199,7 @@ def test():
         
     try:
         feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,".")
-        feature1 = Feature.create_from_bed(method, metagene[method], feature_line, chromosome_converter)
+        feature1 = Feature.create_from_bed(method, metagene[method], feature_line)
         unstranded_read = Read("chr1", ".", 10, 1, [18,19,20,21,22,23,24,25])
         feature1.count_read(unstranded_read, 'all')
     except MetageneError as err:
@@ -217,7 +223,7 @@ def test():
         metagene = Metagene(*t[0])
         print "\t{}".format(metagene)
         feature_line = "{}\t{}\t{}\n".format(1,0,len(t[1]))
-        feature = Feature.create_from_bed('all', metagene, feature_line, chromosome_converter, short=True)
+        feature = Feature.create_from_bed('all', metagene, feature_line, short=True)
         adjusted_feature = ""
         for f in feature.adjust_to_metagene(t[1]):
             adjusted_feature += "{0:0.3f},".format(f)

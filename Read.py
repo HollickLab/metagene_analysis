@@ -64,14 +64,17 @@ class Read():
         mappings -- count of potentially alignment positions
             value: non-zero positive integer; 1 or extracted from NH:i:## tag
     
-    Methods:
+    Class Methods:
         create_from_sam -- create read object from SAM/BAM line
         parse_sam_bitwise_flag -- return countable and reverse_complement booleans
         build_positions -- build positions array from CIGAR alignment
         set_sam_tag -- add key:value pairs to has_sam_tag class dictionary 
+        set_chromosome_sizes -- create dictionary of chromosome sizes
     """
     
     __slots__ = ['chromosome','strand','position_array','abundance','mappings']
+    
+    chromosome_sizes = {}
     
     # Keeps track of presence/absence of certain SAM file tags 
     # (defined by get_sam_tag classmethod)
@@ -111,7 +114,9 @@ class Read():
         if confirm_integer(abundance, "Abundance", minimum=1):
             self.abundance = int(abundance)
         
-        if confirm_integer(mappings, "Alignments", minimum=1):
+        if mappings == "Unknown":
+            self.mappings = 1
+        elif confirm_integer(mappings, "Alignments", minimum=1):
             self.mappings = int(mappings)
     # End of __init__
     
@@ -120,7 +125,7 @@ class Read():
     
     @classmethod
     def create_from_sam(cls, sam_line, 
-                             chromosome_conversion, 
+                             chromosomes_to_process, 
                              count_method, 
                              unique=False,
                              count_secondary_alignments=True,
@@ -157,12 +162,9 @@ class Read():
                                                                       count_supplementary_alignment,
                                                                       count_only_start,
                                                                       count_only_end)
-        if countable: 
+        if countable and sam_parts[2] in chromosomes_to_process: 
             # assign chromosome
-            if sam_parts[2] not in chromosome_conversion.values():
-                raise MetageneError("Read chromosome {} is not in the analysis set".format(sam_parts[2]))
-            else:
-                chromosome = sam_parts[2]
+            chromosome = sam_parts[2]
             # assign mappings
             if unique:
                 mappings = 1
@@ -173,7 +175,7 @@ class Read():
                 except AttributeError:
                     raise MetageneError("Could not determine number of mappings")
             else:
-                raise MetageneError("Could not determine number of mappings")
+                mappings = "Unknown"
         
             # assign abundance either from NA:i:## tag or as 1 (default)
             if 'NA' in cls.has_sam_tag and cls.has_sam_tag['NA']:
@@ -194,7 +196,7 @@ class Read():
         
             return (countable, Read(chromosome, strand, abundance, mappings, positions))
         else:
-            return (countable, "Non-aligning read")
+            return (False, "Non-aligning read")
     # end of create_from_sam
     
     @classmethod
@@ -321,7 +323,7 @@ class Read():
         tag_regex -- regular expression for the tag (eg 'NA:i:(\d+)')
         """
         tag = tag_regex.split(":")[0]
-        (runPipe_worked, sam_sample) = Read.runPipe(['samtools view {}'.format(bamfile_name), 'head -n 10'])
+        (runPipe_worked, sam_sample) = runPipe(['samtools view {}'.format(bamfile_name), 'head -n 10'])
         if runPipe_worked:
             num_tags = 0
             for sam_line in sam_sample:
@@ -337,4 +339,29 @@ class Read():
             return True
         else:
             raise MetageneError("Checking the bam file failed with error: {}".format(sam_sample))  
+
+    @classmethod
+    def set_chromosome_sizes(cls, bamfile):
+        """Set chromosome_sizes dictionary with BAM header.
+        
+        Keyword Arguments:
+        bamfile -- name of bamfile
+        """
+        (runPipe_worked, header) = runPipe(["samtools view -H {}".format(bamfile)])
+        if not runPipe_worked:
+            raise MetageneError("Could not open BAM file {}".format(bamfile))
+        else:
+            return cls.process_set_chromosome_sizes(header)
+    
+    @classmethod
+    def process_set_chromosome_sizes(cls, header):
+        for line in header:
+            if line[0:3] == "@SQ":
+                # parse out chromosome information from @SQ lines
+                name = re.findall('SN:(\S+)', line)[0]
+                size = int(re.findall('LN:(\d+)', line)[0])
+                cls.chromosome_sizes[name] = size
+        if len(cls.chromosome_sizes.keys()) == 0:
+            raise MetageneError("Could not extract any reference sequence (@SQ) lines from header for {} file".format(bamfile))
+        return True
 # end of Read class

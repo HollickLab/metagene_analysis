@@ -31,7 +31,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 '''
 
-import sys, re, datetime, subprocess, math
+import sys
+import re
+import datetime
+import subprocess
+import math
 import argparse		# to parse the command line arguments
 import timeit # for calculating run times...
 
@@ -41,9 +45,12 @@ from Metagene import Metagene
 from Feature import Feature
 from Read import Read
 
+from metageneMethods import runPipe
+from metageneMethods import read_chunk
+
 PROGRAM = "metagene_count.py"
 VERSION = "0.1.2"
-UPDATED = "140402 JRBT"
+UPDATED = "140406 JRBT"
 
 ##TODO: better commandline argument parsing!!! And end user display...    
 def get_arguments():
@@ -152,113 +159,21 @@ Requires:
         
     return arguments
 
-def get_chromosome_sizes(bamfile):
-    '''Uses samtools view -H to get the header information and returns a 
-    dictionary of the chromosome names and sizes.'''
-    
-    chromosome_sizes = {}
-   
-    (runPipe_worked, header) = runPipe(["samtools view -H {}".format(bamfile)])
-    
-    if runPipe_worked:
-        for line in header:
-            if line[0:3] == "@SQ":
-                # parse out chromosome information from @SQ lines
-                # format example (tab-delimited):
-                # @SQ   SN:chromosome_name  LN:chromosome_size
-                name = re.findall('SN:(\S+)', line)[0]
-                size = int(re.findall('LN:(\d+)', line)[0])
-                chromosome_sizes[name] = size
-    else:
-        raise MetageneError(bamfile, "Could not open BAM file {}".format(bamfile))
-    
-    if len(chromosome_sizes.keys()) == 0:
-        raise MetageneError(header, "Could not extract any reference sequence (@SQ) lines from header for {} file".format(bamfile))
-        
-    return chromosome_sizes
 
-def get_chromosome_conversions(tabfile, bam_chromosomes):
-    '''Import TAB delimited conversion table for the chromosome names in the 
-    feature file (column 0) and in the alignment file (column 1).  Return said
-    table as a dictionary with the feature file chromosome names as keys and the 
-    alignment file chromosome names as values.'''
-
-    conversion_table = {}
-    
-    if tabfile != "None":
-        try:
-            with open(tabfile) as infile:
-                rows = infile.read().strip().split("\n")
-                for r in rows:
-                    if r[0] != "#": # don't process comments
-                        row_parts = r.split("\t")
-                        conversion_table[row_parts[0]] = row_parts[1]
-        except IOError as err:
-            infile.close()
-            raise MetageneError(err, "Could not open the conversion table file.")
-    else:
-        for c in bam_chromosomes:
-            conversion_table[c] = c
-    
-    return conversion_table
-
-
-def runPipe(cmds):
-    '''runPipe function is from danizgod's post at stackoverflow exchange: 
-    http://stackoverflow.com/questions/9655841/python-subprocess-how-to-use-pipes-thrice
-    
-    Usage: runPipe(['ls -1','head -n 2', 'head -n 1'])'''
-    
-    try: 
-        p = subprocess.Popen(cmds[0].split(' '), stdin = None, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-        prev = p
-        for cmd in cmds[1:]:
-            p = subprocess.Popen(cmd.split(' '), stdin = prev.stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-            prev = p
-        stdout, stderr = p.communicate()
-        p.wait()
-        returncode = p.returncode
-    except Exception, e:
-        stderr = str(e)
-        returncode = -1
-    if returncode == 0:
-        return (True, stdout.strip().split('\n'))
-    else:
-        return (False, stderr)
-
-        
-def read_chunk(file_obj,chunk_size):
-    '''Read in file by chunk_size chunks returning one line at a time.'''
-    # get first chunk
-    chunk = file_obj.read(chunk_size)
-    # continue looping until a chunk is just EOF (empty line)
-    while chunk:
-        chunk_list = chunk.split("\n")
-        # yield all but last, potentially incomplete line
-        for c in chunk_list[:-1]:
-            yield c
-        # add incomplete line to beginning of next chunk read
-        chunk = chunk_list[-1] + file_obj.read(chunk_size)
-  
            
 def metagene_count():
     '''Chain of command for metagene_count analysis.'''
-
     arguments = get_arguments()
-    #print "Current arguments: \n{}".format(arguments)
-    
     # confirm BAM file and extract chromosome sizes
-    chromosomes = get_chromosome_sizes(arguments.alignment)
-    #print "Current chromosomes: \n{}".format(chromosomes)
+    Read.set_chromosome_sizes(arguments.alignment)
+##TODO: create a list of chromosomes to analyze and/or exclude
+    # create chromosome conversion dictionary for feature (GFF/BED) to alignment (BAM)
+    Feature.set_chromosome_conversion(arguments.chromosome_names, Read.chromosome_sizes.keys()) 
     
     # define has_abundance and has_mappings tags for Read class
     Read.set_sam_tag(arguments.extract_abundance, arguments.alignment, "NA:i:(\d+)")
     Read.set_sam_tag(arguments.extract_mappings, arguments.alignment, "NH:i:(\d+)")
           
-    # create chromosome conversion dictionary for feature (GFF/BED) to alignment (BAM)
-    chromosome_conversion_table = get_chromosome_conversions(arguments.chromosome_names, chromosomes.keys())   
-    #print "Current conversion table: \n{}".format(chromosome_conversion_table)
-    
     # define the metagene array shape (left padding, start, internal, end, right padding)
     # metagene = padding ---- internal region ---- padding 
     try:
@@ -266,17 +181,18 @@ def metagene_count():
         print "Metagene definition:\t{}".format(metagene)
     except MetageneError as err:
         print err
-        raise MetageneError(err, "Unable to create the metagene template")
+        raise MetageneError("Unable to create the metagene template")
     
     try:
         Feature.set_format(arguments.feature) # assign file format for the feature file
         print "Reading feature file as {} format".format(Feature.format)
     except MetageneError as err:
         print err
-        raise MetageneError(err, "Unable to create the feature object")
+        raise MetageneError("Unable to create the feature object")
     
     # print out the header line...
     with open("{}.metagene_counts.csv".format(arguments.output_prefix), 'w') as output_file:
+        output_file.write("# Metagene:\t{}\n".format(metagene)) # define for plotting later
         output_file.write(metagene.print_full())
      
     # for each feature
@@ -284,18 +200,20 @@ def metagene_count():
         for feature_line in read_chunk(feature_file, 1024):
             if feature_line[0] != "#": # skip comment lines
                 # change creation with feature_method
-                feature = Feature.create(arguments.feature_count, metagene, feature_line, chromosome_conversion_table)
+                feature = Feature.create(arguments.feature_count, metagene, feature_line)
                 
                 # pull out sam file lines; it is important to use Feature.get_samtools_region(chromosome_lengths) rather
                 # than Feature.get_chromosome_region() because only the first ensures that the interval does not
                 # extend beyond the length of the chromosome which makes samtools view return no reads
-                (runPipe_worked, sam_sample) = Read.runPipe(['samtools view {} {}'.format(arguments.alignment,feature.get_samtools_region(chromosomes))])
+                (runPipe_worked, sam_sample) = runPipe(['samtools view {} {}'.format(
+                        arguments.alignment,
+                        feature.get_samtools_region())])
                 if runPipe_worked:
                     for samline in sam_sample:
                         if len(samline) > 0:
                             # create Read feature
                             (created_read, read) = Read.create_from_sam(samline, 
-                                                                        chromosome_conversion_table, 
+                                                                        Feature.chromosome_conversion.values(),
                                                                         arguments.count_method, 
                                                                         arguments.uniquely_mapping,
                                                                         arguments.count_secondary_alignments,
@@ -312,7 +230,7 @@ def metagene_count():
                         output_file.write("{}\n".format(feature.print_metagene()))
                     
                 else:
-                    raise MetageneError(sam_sample, "Could not pull chromosomal region {} for feature {} from BAM file {}.".format(feature.get_chromosome_region(), feature.name, arguments.alignment))
+                    raise MetageneError("Could not pull chromosomal region {} for feature {} from BAM file {}.".format(feature.get_chromosome_region(), feature.name, arguments.alignment))
 
     
 if __name__ == "__main__":

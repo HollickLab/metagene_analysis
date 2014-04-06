@@ -34,6 +34,7 @@ from Read import Read
 from MetageneError import MetageneError
 
 ##TODO: test set_sam_tag method
+##TODO: test set_chromosome_sizes
 
 cigar_string = {}
 bad_cigar_string = {}

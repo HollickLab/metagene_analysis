@@ -93,7 +93,19 @@ def runPipe(cmds):
     else:
         return (False, stderr)
 # end of runPipe
-    
+
+def read_chunk(file_obj,chunk_size):
+    '''Read in file by chunk_size chunks returning one line at a time.'''
+    # get first chunk
+    chunk = file_obj.read(chunk_size)
+    # continue looping until a chunk is just EOF (empty line)
+    while chunk:
+        chunk_list = chunk.split("\n")
+        # yield all but last, potentially incomplete line
+        for c in chunk_list[:-1]:
+            yield c
+        # add incomplete line to beginning of next chunk read
+        chunk = chunk_list[-1] + file_obj.read(chunk_size)
     
     
     
