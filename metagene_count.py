@@ -106,6 +106,13 @@ Requires:
                         default = 1000,
                         type = int,
                         metavar = 'NT')
+    parser.add_argument("--interval_variable",
+                        help = "Allow variable interval size; will prevent true metagene analysis",
+                        action = "store_true")
+    parser.add_argument("--ignore_strand",
+                        help = "Do not count reads by strand",
+                        action = "store_true")
+                       
                         
     parser.add_argument("--extract_abundance",
                         help = "Extract abundance information from NA:i:## tag in BAM file",
@@ -127,11 +134,13 @@ Requires:
                         action = 'store_true',
                         default = False)
                         
+                        
     parser.add_argument("--include_reads",
                         help = "Include reads with these features, repeat tag up to 4 times. Hint: can ignore if BAM column 2 < 256",
                         choices = ['secondary_alignment', 'failed_quality_control', 'PCR_duplicate', 'supplementary_alignment'],
                         action = 'append',
                         default = [])
+                       
     
     arguments = parser.parse_args()
     
@@ -191,16 +200,17 @@ def metagene_count():
         raise MetageneError("Unable to create the feature object")
     
     # print out the header line...
-    with open("{}.metagene_counts.csv".format(arguments.output_prefix), 'w') as output_file:
-        output_file.write("# Metagene:\t{}\n".format(metagene)) # define for plotting later
-        output_file.write(metagene.print_full())
+    if not arguments.interval_variable:
+        with open("{}.metagene_counts.csv".format(arguments.output_prefix), 'w') as output_file:
+            output_file.write("# Metagene:\t{}\n".format(metagene)) # define for plotting later
+            output_file.write(metagene.print_full())
      
     # for each feature
     with open(arguments.feature, 'r') as feature_file:
         for feature_line in read_chunk(feature_file, 1024):
             if feature_line[0] != "#": # skip comment lines
                 # change creation with feature_method
-                feature = Feature.create(arguments.feature_count, metagene, feature_line)
+                feature = Feature.create(arguments.feature_count, metagene, feature_line, arguments.count_splicing, arguments.ignore_strand)
                 
                 # pull out sam file lines; it is important to use Feature.get_samtools_region(chromosome_lengths) rather
                 # than Feature.get_chromosome_region() because only the first ensures that the interval does not
@@ -216,6 +226,7 @@ def metagene_count():
                                                                         Feature.chromosome_conversion.values(),
                                                                         arguments.count_method, 
                                                                         arguments.uniquely_mapping,
+                                                                        arguments.ignore_strand,
                                                                         arguments.count_secondary_alignments,
                                                                         arguments.count_failed_quality_control,
                                                                         arguments.count_PCR_optical_duplicate,
@@ -223,11 +234,11 @@ def metagene_count():
 
                             # count read (if it exists)
                             if created_read:
-                                feature.count_read(read, arguments.count_method, arguments.count_splicing, arguments.count_partial_reads)
+                                feature.count_read(read, arguments.count_method, arguments.count_splicing, arguments.count_partial_reads, arguments.ignore_strand)
 
                     # output the resulting metagene
                     with open("{}.metagene_counts.csv".format(arguments.output_prefix), 'a') as output_file:
-                        output_file.write("{}\n".format(feature.print_metagene()))
+                        output_file.write("{}\n".format(feature.print_metagene(interval_override=arguments.interval_variable)))
                     
                 else:
                     raise MetageneError("Could not pull chromosomal region {} for feature {} from BAM file {}.".format(feature.get_chromosome_region(), feature.name, arguments.alignment))

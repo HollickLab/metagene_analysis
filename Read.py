@@ -128,6 +128,7 @@ class Read():
                              chromosomes_to_process, 
                              count_method, 
                              unique=False,
+                             ignore_strand=False,
                              count_secondary_alignments=True,
                              count_failed_quality_control=False,
                              count_PCR_optical_duplicate=False,
@@ -186,10 +187,13 @@ class Read():
             else:
                 abundance = 1
             # assign strand and positions
-            if reverse_complement: # Crick or Minus strand
-                strand = "-" 
-            else: # Watson or Plus strand
-                strand = "+"  
+            if ignore_strand:
+                strand = "."
+            else:
+                if reverse_complement: # Crick or Minus strand
+                    strand = "-" 
+                else: # Watson or Plus strand
+                    strand = "+"  
         
             # create genomic positions for read (start, cigar_string, sequence)
             positions = Read.build_positions(int(sam_parts[3]), sam_parts[5], sam_parts[9])

@@ -101,7 +101,7 @@ class Feature(Metagene):
     previously_warned_start_bigger_than_end = False
     chromosome_conversion = {}
     
-    def __init__(self, count_method, metagene_object, name, chromosome, start, end, strand, gap_counting=False):
+    def __init__(self, count_method, metagene_object, name, chromosome, start, end, strand, gap_counting=False, ignore_strand=False):
         '''Not normally called directly; use Feature.create(file_format, count_method, 
         metagene_object, feature_line, chromosome_conversion_table) to call indirectly.
         
@@ -141,6 +141,8 @@ class Feature(Metagene):
         # values: arrays of self.length initialized to 0
         if self.strand != "+" and self.strand != "-":
             self.strand = "."
+            orientation = ['unstranded']
+        elif ignore_strand:
             orientation = ['unstranded']
         else:
             orientation = ['sense', 'antisense']
@@ -258,7 +260,7 @@ class Feature(Metagene):
     # end of Feature.get_samtools_region function    
     
     
-    def print_metagene(self, pretty=False, header=False):
+    def print_metagene(self, pretty=False, header=False, interval_override=False):
         '''Converts counts_array data to finalized metagene profiles for printing
         
         Standard printing is in comma-delimited lines for input into metagene_analysis.py
@@ -266,7 +268,11 @@ class Feature(Metagene):
         
         final_metagenes = {}
         
-        if header:
+        if interval_override:
+            metagene = Metagene(self.feature_interval, self.padding['Upstream'], self.padding['Downstream'])
+            output = "# Metagene:\t{}\n".format(metagene)
+            output += metagene.print_full()
+        elif header:
             metagene = Metagene(self.metagene_length, self.padding['Upstream'], self.padding['Downstream'])
             output = metagene.print_full(pretty)
         else:
@@ -278,9 +284,11 @@ class Feature(Metagene):
             upstream_counts = self.counts_array[subset][0:self.padding['Upstream']]
             interval_counts = self.counts_array[subset][self.padding['Upstream'] : self.padding['Upstream'] + self.feature_interval]
             downstream_counts = self.counts_array[subset][self.padding['Upstream'] + self.feature_interval : len(self.counts_array[subset])]
-        
-            # compress (or expand) interval_counts to match the size of the internal metagene
-            metagene_interval_counts = self.adjust_to_metagene(interval_counts)
+            if interval_override:
+                metagene_interval_counts = interval_counts
+            else:
+                # compress (or expand) interval_counts to match the size of the internal metagene
+                metagene_interval_counts = self.adjust_to_metagene(interval_counts)
             
             if pretty:
                 output += "{0:15s}:\t".format(subset)
@@ -388,7 +396,7 @@ class Feature(Metagene):
     # end of adjust_to_metagene
     
        
-    def count_read(self, read_object, count_method, count_gaps=False, count_partial_reads=False):
+    def count_read(self, read_object, count_method, count_gaps=False, count_partial_reads=False, ignore_strand=False):
         '''Add a read object to the sense or antisense counts_array. Requires strand
         options of "+", "-" or "."
         
@@ -400,7 +408,7 @@ class Feature(Metagene):
         count_partial_reads=False default to ignore reads that only partially overlap with the feature'''
         
         # determine orientation (and if countable)
-        if self.strand == ".":
+        if self.strand == "." or ignore_strand:
             subset = 'unstranded'
         elif read_object.strand != ".":
             if self.strand == read_object.strand:
@@ -431,20 +439,22 @@ class Feature(Metagene):
         if self.chromosome == read_object.chromosome:
             # get positions from read to potentially count
             positions_to_count = []
-        
+            
+            divisor = 1
             if count_method == 'start':
                 positions_to_count.append(read_object.position_array[0])
             elif count_method == 'end':
                 positions_to_count.append(read_object.position_array[-1])
             elif count_method == 'all':
                 positions_to_count = read_object.position_array
+                divisor = len(positions_to_count) 
             else:
                 raise MetageneError("Unrecognizable counting method.  Valid options are 'start', 'end', and 'all'")
         
             for p in positions_to_count:
                 # make sure it overlaps with the Feature
                 if p in self.position_array:
-                    self.counts_array[subset][self.position_array.index(p)] += (read_object.abundance / float(read_object.mappings)) #(decimal.Decimal(read_object.abundance) / decimal.Decimal(read_object.mappings))        
+                    self.counts_array[subset][self.position_array.index(p)] += ((read_object.abundance / float(read_object.mappings)) / divisor) # keep counts in reads rather than nucleotides 
     # end of count_read function        
     
     
@@ -496,19 +506,19 @@ class Feature(Metagene):
     # end of set_format classmethod        
         
     @classmethod
-    def create(cls, count_method, metagene, feature_line):
+    def create(cls, count_method, metagene, feature_line, gap_counting=False, ignore_strand=False):
         '''Calls individual creation methods based on format.'''
         if Feature.format == "GFF":
-            return Feature.create_from_gff(count_method, metagene, feature_line)
+            return Feature.create_from_gff(count_method, metagene, feature_line, gap_counting, ignore_strand)
         elif Feature.format == "BED": # BED6 or BED12
-            return Feature.create_from_bed(count_method, metagene, feature_line)
+            return Feature.create_from_bed(count_method, metagene, feature_line, gap_counting, ignore_strand)
         elif Feature.format == "BED_SHORT":
-            return Feature.create_from_bed(count_method, metagene, feature_line, short=True)
+            return Feature.create_from_bed(count_method, metagene, feature_line, gap_counting, ignore_strand, short=True)
         else:
             raise MetageneError("Could not determine the format of features in the feature file")
             
     @classmethod
-    def create_from_bed(cls, count_method, metagene_object, bed_line, short=False):
+    def create_from_bed(cls, count_method, metagene_object, bed_line, gap_counting, ignore_strand, short=False):
         '''Return a Feature object created from the BED line'''
         
         bed_parts = bed_line.strip().split("\t")
@@ -538,7 +548,9 @@ class Feature(Metagene):
                         bed_parts[0], # chromosome name
                         start, # start 1-based
                         end, # end 1-based
-                        ".")) # strand unknown
+                        ".", # strand unknown
+                        gap_counting, 
+                        ignore_strand))
         else:
             return (Feature(count_method, 
                         metagene_object, 
@@ -546,12 +558,14 @@ class Feature(Metagene):
                         bed_parts[0], # chromosome name
                         start, # start 1-based
                         end, # end 1-based
-                        bed_parts[5])) # strand
+                        bed_parts[5], # strand
+                        gap_counting, 
+                        ignore_strand))
     # end of create_from_bed classmethod
 
 
     @classmethod
-    def create_from_gff(cls, count_method, metagene_object, gff_line):
+    def create_from_gff(cls, count_method, metagene_object, gff_line, gap_counting, ignore_strand):
         '''Return a Feature object created from the GFF line'''
         
         gff_parts = gff_line.strip().split("\t")
@@ -579,7 +593,9 @@ class Feature(Metagene):
                         gff_parts[0], # chromosome name
                         start, # start 1-based
                         end, # end 1-based
-                        gff_parts[6])) # strand
+                        gff_parts[6], # strand
+                        gap_counting,
+                        ignore_strand)) 
     # end of create_from_gff classmethod
 
     @classmethod
@@ -596,7 +612,7 @@ class Feature(Metagene):
                 infile.close()
                 raise MetageneError("Could not open the conversion table file.")
         else:
-            return cls.process_set_chromosomes_conversion(bam_chromosomes, use_bam_chromosomes=True)
+            return cls.process_set_chromosome_conversion(bam_chromosomes, use_bam_chromosomes=True)
     
     @classmethod
     def process_set_chromosome_conversion(cls, tabfile_lines, use_bam_chromosomes=False):

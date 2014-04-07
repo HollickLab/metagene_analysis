@@ -96,7 +96,9 @@ def build_output_filenames(infile, prefix, window_size, step_size, separate_grou
         group = inf.readline().strip().split(",")[1]
         while group not in groups:
             groups.append(group)
-            group = inf.readline().strip().split(",")[1]
+            line = inf.readline().strip()
+            if len(line) == 0: break
+            group = line.split(",")[1]
     
     basefile = "{}.{}.{}bpX{}bp".format(prefix, infile[:-4], window_size, step_size)
     if separate_groups:
