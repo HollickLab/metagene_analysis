@@ -4,14 +4,14 @@ Updated: 07 April 2014 by Joy-El R.B. Talbot
 
 Requirements
 ============
-python 2.7.x (https://www.python.org/downloads/)
-samtools 0.1.18+ (http://sourceforge.net/projects/samtools/files/)
-R 2.15.2 (http://cran.us.r-project.org/)
+1. python 2.7.x (https://www.python.org/downloads/)
+2. samtools 0.1.18+ (http://sourceforge.net/projects/samtools/files/)
+3. R 2.15.2 (http://cran.us.r-project.org/)
 
 Installation
 ============
-1. Unzip download from github: 
-2. Make sure that samtools and R can be accessed from anywhere
+1. Unzip download from github
+2. Make sure that samtools and R are in your $PATH
 3. Start by running metagene_count.py (then metagene_bin.py, then your flavor of metagene_plot_*.py)
 
 Acknowledgements
@@ -22,6 +22,7 @@ original Perl code by Karl F. Erhard, Jr Copyright (c) 2011.
 License
 =======
 Joy-El R.B. Talbot Copyright (c) 2014
+
 The MIT License (MIT)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
