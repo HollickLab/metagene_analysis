@@ -32,7 +32,7 @@ Quick Start
 Additional Options
 ------------------
 
-####**--feature_count [ all | start | end ]**
+####*--feature_count [ all | start | end ]*
 
     Specify how each feature is processed and counted.
 
@@ -52,7 +52,7 @@ Additional Options
            --feature_count all was set. For start or end counting only the 
            --interval_size is automatically 1.
 
-####**--count_method [ all | start | end ]**
+####*--count_method [ all | start | end ]*
 
     Specify how each read (alignment) is processed and counted.
     
@@ -72,32 +72,32 @@ Additional Options
            the length of the read that maps to the feature (gaps for instance 
            are excluded).
 
-####**--count_partial_reads**
+####*--count_partial_reads*
 
     Flag to include in count reads only partially aligning with feature 
     
     Default: False (require that reads completely fall in feature (+/- padding) boundary)
 
-####**--padding INT**
+####*--padding INT*
 
     Define size of padding (in nucleotides) added to each side of the feature
     
     Default: 1000
 
-####**--interval_size INT**
+####*--interval_size INT*
 
     Define the size of the metagene feature region
     
     Default: 1000 (unless --feature_count = [start | end] then default is 1, see --feature_count for details)
     
-####**--interval_variable**
+####*--interval_variable*
 
     Flag to prevent shrinking/expansion of feature to metagene interval_size.  
     *Only works for downstream analysis with a feature_file of 1 feature* 
     
     Default: False
 
-####**--ignore_strand**
+####*--ignore_strand*
 
     Combine + and - strand reads into an unstranded count
     
@@ -121,7 +121,7 @@ Additional Options
            without separating the counts into distinct tallies as is normally done
            under rule 3 above.
 
-####**--extract_abundance**
+####*--extract_abundance*
 
     Flag to pull abundance information from BAM alignment file
     
@@ -129,7 +129,7 @@ Additional Options
     
     Default: False; and each alignment line in BAM file is counted with abundance = 1
     
-####**--extract_mappings**
+####*--extract_mappings*
     
     Flag to pull total number of mappings (to bowtie index) from BAM alignment file;
     will result in hits-normalized (abundance / mappings) counts.
@@ -138,13 +138,13 @@ Additional Options
       
     Default: False; and each alignment line is assumed to have mappings = 1
 
-####**--uniquely_mapping**
+####*--uniquely_mapping*
 
     Flag to assert that each alignment in BAM aligned uniquely to the reference
     
     Default: False
 
-####**--chromosome_names chromosome_conversion_file.tab**
+####*--chromosome_names chromosome_conversion_file.tab*
 
     Add a conversion to account for name differences between feature and alignment files.
     
@@ -157,7 +157,7 @@ Additional Options
             - must be the same as the name in the BAM header (SN: column in @SQ 
               lines from command: samtools view -H bamfile.bam)
 
-####**--count_splicing**
+####*--count_splicing*
     
     Flag to separate reads into gapped (potentially spliced) and ungapped (potentially
     unspliced and other ungapped reads like fully intronic, fully exonic, fully
@@ -165,7 +165,7 @@ Additional Options
     
     Default: False
 
-####**--include_reads [ secondary_alignment | failed_quality_control | PCR_duplicate | supplementary_alignment ]**
+####*--include_reads [ secondary_alignment | failed_quality_control | PCR_duplicate | supplementary_alignment ]*
 
     Flags to change how different types of reads are handled
     
@@ -191,16 +191,20 @@ Step 2: metagene_bin.py
 
 Quick Start
 -----------
-Required input:
+
+####Required input:
+    
     1. Output from metagene_count.py
 
-Basic command:
+####Basic command:
+
     python metagene_bin.py --input prefix.metagene_count.csv [--output_prefix my_bins] [--separate_groups]
 
     --separate_groups is technically optional, but required to flow output into the
     metagene_plot*.py commands
     
-Output:
+####Output:
+
     Comma-delimited file for metagene_plot*.py commands.
     
     NOTE: to be parsed by the metagene_plot*.py, the output names *must end* in 
@@ -213,7 +217,7 @@ Output:
 Additional Options
 ------------------
 
-####**--input metagene_count_output_file**
+####*--input metagene_count_output_file*
     
     Input file
     
@@ -221,19 +225,19 @@ Additional Options
         1. Multiple files can be processed at once by repeating the --input file 
            command with each new file name
 
-####**--output_prefix prefix**
+####*--output_prefix prefix*
 
     Output prefix to append to resulting file names
     
     Default: binned
     
-####**--window_size INT**
+####*--window_size INT*
     
     Size of the windows (in nucleotides) to bin metagene_counts
     
     Default: 10
     
-####**--step_size INT**
+####*--step_size INT*
 
     Size of the step (in nucleotides) to slide the windows.
     
@@ -243,7 +247,7 @@ Additional Options
         1. To have non-overlapping windows: set step_size = window_size
         2. Decrease step_size relative to window_size to further smooth the plots
 
-####**--separate_groups**
+####*--separate_groups*
 
     Flag to separate different counting groups (eg sense vs antisense or 
     gapped vs ungapped) into different files. REQUIRED for downstream plotting 
@@ -261,10 +265,13 @@ you in custom plotting of your binned metagenes with R.
 
 Quick Start
 -----------
-Required input:
+
+####Required input:
+
     1. Output from metagene_bin.py; DO NOT CHANGE file names (see above)!
 
-Output:
+####Output:
+
     PDF file of a plot
     
     NOTE: The rendering of the plot may sometimes result in legends overlapping
@@ -276,9 +283,10 @@ Output:
     metagene_analysis into summary figures and adjust line sizes and fonts for
     publication in your favorite journal. :-)
 
-The rest of the details vary by which metagene_plot*.py is chosen.  
+####The rest of the details vary by which metagene_plot*.py is chosen.  
 
-Options:
+####Options:
+
     1. metagene_plot_only.py  
         - plot many metagenes (of same size) at once
     2. metagene_plot_individual.py  
@@ -296,10 +304,12 @@ Step 3a: metagene_plot_only.py
 Quick Start
 -----------
 
-Required input:
+####Required input:
+
     1. Output from metagene_bin.py; DO NOT CHANGE file names (see above)!
 
-Basic command:
+####Basic command:
+
     python metagene_plot_only.py --output_prefix my_plot --feature_counted [ TSS | Start | End | other_string ] --data_set binned.10bpX10bp.sense_allreads.csv,binned.10bpX10bp.antisense_allreads.csv,total_reads_in_library,color(for plotting),name(for legend)
     
     --data_set entries must be comma-delimited with NO spaces, and can be repeated
@@ -313,13 +323,14 @@ Basic command:
            see http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf for options
         5. name of the data_set (will be used in the legend)
     
-Output:
+####Output:
+
     PDF file of a plot
 
 Additional Options
 ------------------
 
-####**--feature_counted [ TSS | Start | End | othertext ]**
+####*--feature_counted [ TSS | Start | End | othertext ]*
 
     This text will appear in the x-axis label of your plot. It is also used to 
     determine how the grey feature box in drawn (see below).
@@ -346,15 +357,18 @@ Step 3b: metagene_plot_individual.py
 Quick Start
 -----------
 
-Required input:
+####Required input:
+
     1. Output from metagene_bin.py; DO NOT CHANGE file names (see above)!
        *MUST* originate from a metagene_count.py --interval_variable run with a
        *single* feature!!
 
-Basic command:
+####Basic command:
+
     python metagene_plot_individual.py --output_prefix my_plot --normalization INT --fileset_a binned.10bpX10bp.unstranded_gapped.csv --fileset_b binned.10bpX10bp.unstranded_ungapped.csv --individual_splicing
         
-Output:
+####Output:
+
     PDF file of a plot
     
 Step 3c: metagene_plot_with_statistics.py
@@ -363,13 +377,16 @@ Step 3c: metagene_plot_with_statistics.py
 Quick Start
 -----------
 
-Required input:
+####Required input:
+
     1. Output from metagene_bin.py; DO NOT CHANGE file names (see above)!
 
-Basic command:
+####Basic command:
+
     python metagene_plot_with_statistics.py --output_prefix my_plot --fileset_a binned.set1.10bpX10bp.sense_allreads.csv --fileset_a binned.set1.10bpX10bp.antisense_allreads.csv --normalization_a INT --fileset_b binned.set2.10bpX10bp.sense_allreads.csv --fileset_b binned.set2.10bpX10bp.antisense_allreads.csv --normalization_b INT --feature_counted [ TSS | Start | End | other_string ]
     
-Output:
+####Output:
+
     1. PDF file of a plot
     2. CSV files of statistics for sense and antisense strands
     
