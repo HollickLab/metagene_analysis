@@ -21,13 +21,17 @@ Basic command:
 Additional Options
 ------------------
 
---feature_count [ all | start | end ]
+#**--feature_count [ all | start | end ]**
+
     Specify how the feature is processed and counted.
+
     Default -- all
+
     Options
-        1. all   -- each position from feature's start to end are included 
-        2. start -- only the feature's start position (1 nt) is included
-        3. end   -- only the feature's end position (1 nt) is included
+        * all   -- each position from feature's start to end are included 
+        * start -- only the feature's start position (1 nt) is included
+        * end   -- only the feature's end position (1 nt) is included
+
     Additional notes:
         1. Start and end positions are relative to the feature with the start 
            being the 5'-most base of the feature and end being the 3'-most base.
