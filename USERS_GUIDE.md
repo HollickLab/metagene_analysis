@@ -6,7 +6,9 @@ Step 1: metagene_count.py
 
 Quick Start
 -----------
-Required input:
+
+####Required input:
+
     1. Alignment file 
         - MUST be a sorted and indexed BAM file
         - The index file (.bai) must be in the same directory as the BAM file (.bam)
@@ -15,10 +17,12 @@ Required input:
     3. Chromosome conversion file 
         - TAB file if chromosome names vary between alignment and feature files
 
-Basic command:
+####Basic command:
+
     python metagene_count.py --alignment alignement_file.bam --feature feature_file.bed [--chromosome_names conversion_file.tab] [--output_prefix my_counts] 
 
-Output:
+####Output:
+
     Comma-delimited file for metagene_bin.py
     
     Nameing: output_prefix.metagene_counts.csv, where output_prefix is either the
