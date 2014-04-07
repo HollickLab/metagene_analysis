@@ -88,7 +88,20 @@ def setup():
     good_input['minus_strand_match'] = (16, "chr1", 200, "10M", 10, 2, 4, "-")
     good_input['no_match'] = (4, "*", 0, "*", 10, 1, 1, ".")
 
-
+    sample = ["NA:i:4\tNH:i:4",
+              "NA:i:4\tNH:i:4",
+              "NA:i:4\tNH:i:4",
+              "NA:i:4\tNH:i:4",
+              "NA:i:4\tNH:i:4",
+              "NA:i:4\tNH:i:4",
+              "NA:i:4\tNH:i:4",
+              "NA:i:4\tNH:i:4",
+              "NA:i:4\tNH:i:4",
+              "NA:i:4\tNH:i:4"]
+                                     
+    Read.process_set_sam_tag(sample, count_tag=True, tag_regex='NA:i:(\d+)')
+    Read.process_set_sam_tag(sample, count_tag=True, tag_regex='NH:i:(\d+)')
+    
 def test_build_positions():
     for test in cigar_string:
         yield (check_build_positions, test, cigar_string[test])
@@ -130,21 +143,20 @@ def check_catch_bad_bitwise_input(test, (values, expected)):
 def build_samline(bitcode, chromosome, start, cigar, length, abundance, mappings):
     """Return a SAM format line"""
     string = "a" * length
-    return "read\t{}\t{}\t{}\t255\t{}\t*\t0\t0\t{}\t{}\tNA:i:{}\tNH:i:{}".format(
+    return "read\t{}\t{}\t{}\t255\t{}\t*\t0\t0\t{}\t{}\tNH:i:{}\tNA:i:{}".format(
             bitcode,
             chromosome,
             start, 
             cigar,
             string,
             string,
-            abundance,
-            mappings)
+            mappings,
+            abundance)
  
 def test_create_read():
     for test in good_input:
         yield (check_create_read, test, good_input[test])
 
-##TODO: be able to create cls.has_sam_tag before running this test...
 def check_create_read(test, values):
     # create expected result
     if int(values[0]) == 4:
@@ -163,10 +175,12 @@ def check_create_read(test, values):
                     float(values[5]) / float(values[6])) # abundance / mappings
     # build input to test
     samline = build_samline(*values[0:-1]) # exclude final value
-    (created, read) = Read.create_from_sam(samline, chromosome_conversion, count_method='all', unique=True)
+    (created, read) = Read.create_from_sam(samline, chromosome_conversion.values(), count_method='all')
     output = str(read).split("\t")[0]
     # create description in case test fails
     test_description =  "\nTest:    \t{}\n".format(test)
+    test_description += "Abundance:\t{}\n".format(Read.has_sam_tag["NA"])
+    test_description += "Mappings:\t{}\n".format(Read.has_sam_tag["NH"])
     test_description += "Sam Line:\t{}\n".format(samline)
     test_description += "Expected:\t{}\n".format(expected)
     test_description += "Position:\t{}\n".format(output)

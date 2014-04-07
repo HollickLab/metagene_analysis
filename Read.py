@@ -177,7 +177,7 @@ class Read():
                     raise MetageneError("Could not determine number of mappings")
             else:
                 mappings = "Unknown"
-        
+           
             # assign abundance either from NA:i:## tag or as 1 (default)
             if 'NA' in cls.has_sam_tag and cls.has_sam_tag['NA']:
                 try: 
@@ -326,23 +326,28 @@ class Read():
         bamfile_name -- file to query for tag
         tag_regex -- regular expression for the tag (eg 'NA:i:(\d+)')
         """
-        tag = tag_regex.split(":")[0]
         (runPipe_worked, sam_sample) = runPipe(['samtools view {}'.format(bamfile_name), 'head -n 10'])
         if runPipe_worked:
-            num_tags = 0
-            for sam_line in sam_sample:
-                if re.search(tag_regex,sam_line) != None:
-                    num_tags += 1
-            if num_tags == 10:
-                has_sam_value = True
-            else:
-                has_sam_value = False
-                if count_tag:
-                    raise MetageneError("Your alignment file does not have the required {} tag.".format(tag))
-            cls.has_sam_tag[tag] = has_sam_value
-            return True
+            return cls.process_set_sam_tag(sam_sample, count_tag, tag_regex)   
         else:
             raise MetageneError("Checking the bam file failed with error: {}".format(sam_sample))  
+
+    @classmethod
+    def process_set_sam_tag(cls, sample, count_tag, tag_regex):
+        """Process sample from set_sam_tag. (Separate file handling from processing.)"""
+        tag = tag_regex.split(":")[0]
+        num_tags = 0
+        for sam_line in sample:
+            if re.search(tag_regex,sam_line) != None:
+                num_tags += 1
+        if num_tags == 10:
+            has_sam_value = True
+        else:
+            has_sam_value = False
+            if count_tag:
+                raise MetageneError("Your alignment file does not have the required {} tag.".format(tag))
+        cls.has_sam_tag[tag] = has_sam_value
+        return True
 
     @classmethod
     def set_chromosome_sizes(cls, bamfile):
@@ -359,6 +364,7 @@ class Read():
     
     @classmethod
     def process_set_chromosome_sizes(cls, header):
+        """Process header from set_chromosome_sizes. (Separate file handling from processing.)"""
         for line in header:
             if line[0:3] == "@SQ":
                 # parse out chromosome information from @SQ lines

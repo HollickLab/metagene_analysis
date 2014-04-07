@@ -72,7 +72,7 @@ def test():
         try:
             bedline = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
             print "\t  with BED line:\t{}".format(bedline.strip())
-            feature1 = Feature.create_from_bed(method, metagene, bedline)
+            feature1 = Feature.create_from_bed(method, metagene, bedline, False, False)
             if str(feature1.position_array) != correct_features['bed'][method]: 
                 print "**FAILED**\t  Create Feature from BED line ?"
                 print "\t  Desired positions:\t{}".format(correct_features['bed'][method])
@@ -86,7 +86,7 @@ def test():
         try:
             gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",10,39,".","-",".","second")
             print "\t  with GFF line:\t{}".format(gffline.strip())
-            feature2 = Feature.create_from_gff(method,metagene, gffline)
+            feature2 = Feature.create_from_gff(method,metagene, gffline, False, False)
             if str(feature2.position_array) != correct_features['gff'][method]: 
                 print "**FAILED**\t  Create Feature from GFF line ?\t**FAIL**"
                 print "\t  Desired positions:\t{}".format(correct_features['gff'][method])
@@ -100,7 +100,7 @@ def test():
         try:
             gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",39,10,".","-",".","second")
             print "\t  with GFF line:\t{}".format(gffline.strip())
-            feature2 = Feature.create_from_gff(method,metagene, gffline)
+            feature2 = Feature.create_from_gff(method,metagene, gffline, False, False)
             if str(feature2.position_array) != correct_features['gff'][method]: 
                 print "**FAILED**\t  Create Feature from GFF line with swapped start and end ?\t**FAIL**"
                 print "\t  Desired positions:\t{}".format(correct_features['gff'][method])
@@ -112,7 +112,7 @@ def test():
         try:
             gffline = "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(2,"test","gene",39,10,".","+",".","second")
             print "\t  with GFF line:\t{}".format(gffline.strip())
-            feature2 = Feature.create_from_gff(method,metagene, gffline)
+            feature2 = Feature.create_from_gff(method,metagene, gffline, False, False)
             if str(feature2.position_array) != correct_features['gff'][method]: 
                 print "**FAILED**\t  Do not create Feature from GFF line with swapped start and end, + strand ?\t**FAIL**"
                 print "\t  Desired positions:\t{}".format(correct_features['gff'][method])
@@ -156,7 +156,7 @@ def test():
        
         print "\nTesting feature_count option: ****{}****".format(method)
         feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,"+")
-        feature1 = Feature.create_from_bed(method, metagene[method], feature_line)
+        feature1 = Feature.create_from_bed(method, metagene[method], feature_line, False, False)
         print "\tFeature:\t{}".format(feature1.position_array)
         
         reads = []
@@ -187,7 +187,7 @@ def test():
                 print "\tExpected:\n{}".format(expected[method][count_method])
                 print "\tActual  :\n{}".format(feature1.print_metagene())
                 print "\tSummary of run:\n{}".format(output)
-            feature1 = Feature.create_from_bed(method, metagene[method], feature_line) # zero out counter for next round
+            feature1 = Feature.create_from_bed(method, metagene[method], feature_line, False, False) # zero out counter for next round
         
     try:
         unstranded_read = Read("chr1", ".", 10, 1, [18,19,20,21,22,23,24,25])
@@ -199,7 +199,7 @@ def test():
         
     try:
         feature_line = "{}\t{}\t{}\t{}\t{}\t{}\n".format(1,20,40,"first",44,".")
-        feature1 = Feature.create_from_bed(method, metagene[method], feature_line)
+        feature1 = Feature.create_from_bed(method, metagene[method], feature_line, False, False)
         unstranded_read = Read("chr1", ".", 10, 1, [18,19,20,21,22,23,24,25])
         feature1.count_read(unstranded_read, 'all')
     except MetageneError as err:
@@ -223,7 +223,7 @@ def test():
         metagene = Metagene(*t[0])
         print "\t{}".format(metagene)
         feature_line = "{}\t{}\t{}\n".format(1,0,len(t[1]))
-        feature = Feature.create_from_bed('all', metagene, feature_line, short=True)
+        feature = Feature.create_from_bed('all', metagene, feature_line, False, False, short=True)
         adjusted_feature = ""
         for f in feature.adjust_to_metagene(t[1]):
             adjusted_feature += "{0:0.3f},".format(f)
