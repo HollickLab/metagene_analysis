@@ -2,6 +2,14 @@ metagene_analysis
 =================
 Updated: 07 April 2014 by Joy-El R.B. Talbot
 
+Description
+===========
+Create custom plots that summarize read alignments patterns over user-defined
+genomic features. Requires alignment files (indexed BAM format) and feature files
+(currently BED or GFF format) which can describe any type of feature expressed
+by start and end chromosomal coordinates. Please see the USERS_GUIDE.md for 
+more details and a list of metagene counting options.
+
 Requirements
 ============
 1. python 2.7.x (https://www.python.org/downloads/)
