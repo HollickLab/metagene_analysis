@@ -1,6 +1,6 @@
 #!/usr/bin/python
-'''The third step of metagene_analysis, metagene_plot.py uses R to create the
-metagene plot (as a PDF) and its associated statistics.
+'''The third step of metagene_analysis, metagene_plot_with_statistics.py uses R 
+to create the metagene plot (as a PDF) and its associated statistics.
 Please see README for full details and examples.
 
 Requires:
@@ -37,7 +37,7 @@ import datetime
 import os
 import argparse		# to parse the command line arguments
 
-PROGRAM = "metagene_plot.py"
+PROGRAM = "metagene_plot_with_statistics.py"
 VERSION = "0.1.0"
 UPDATED = "140406 JRBT"
 
@@ -75,18 +75,18 @@ Requires:
     
     parser.add_argument("--normalization_a",
                         help = "Normalization value for file_a; eg total reads would result in reads per million",
-                        type = int,
-                        required = True)
+                        type = int)
     parser.add_argument("--normalization_b",
                         help = "Normalization value for file_b; eg total reads would result in reads per million",
-                        type = int,
-                        required = True) 
+                        type = int) 
                                           
     parser.add_argument("--feature_counted",
                         help = "Name of feature examined, eg TSS, gene, intron",
                         required = True)
 
-    return parser.parse_args()
+    arguments = parser.parse_args()
+       
+    return arguments
     
 if __name__ == "__main__":
     arguments = get_arguments()
@@ -120,7 +120,6 @@ if __name__ == "__main__":
     path_to_script = os.path.dirname(os.path.realpath(__file__))
 
     path_to_script += "/multiple_t_test.R"
-
     subprocess.call(['Rscript', 
                      path_to_script, 
                      str(arguments.fileset_a[0]),     # file.1.sense
@@ -139,5 +138,5 @@ if __name__ == "__main__":
                      str(interval_end),
                      str(downstream_start),
                      str(downstream_end)]) 
-                     
+    
     print "Finished plotting"
