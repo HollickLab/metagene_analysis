@@ -440,21 +440,19 @@ class Feature(Metagene):
             # get positions from read to potentially count
             positions_to_count = []
             
-            divisor = 1
             if count_method == 'start':
                 positions_to_count.append(read_object.position_array[0])
             elif count_method == 'end':
                 positions_to_count.append(read_object.position_array[-1])
             elif count_method == 'all':
                 positions_to_count = read_object.position_array
-                divisor = len(positions_to_count) 
             else:
                 raise MetageneError("Unrecognizable counting method.  Valid options are 'start', 'end', and 'all'")
         
             for p in positions_to_count:
                 # make sure it overlaps with the Feature
                 if p in self.position_array:
-                    self.counts_array[subset][self.position_array.index(p)] += ((read_object.abundance / float(read_object.mappings)) / divisor) # keep counts in reads rather than nucleotides 
+                    self.counts_array[subset][self.position_array.index(p)] += (read_object.abundance / float(read_object.mappings)) 
     # end of count_read function        
     
     
