@@ -1,5 +1,5 @@
 #!/usr/bin/python
-'''The first step of metagene_analysis, metagene_count.py compiles read abundance
+"""The first step of metagene_analysis, metagene_count.py compiles read abundance
 over genomic features to create the input for metagene_windows.py. Please 
 see README for full details and examples.
 
@@ -29,7 +29,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-'''
+"""
 
 import sys
 import re
@@ -45,7 +45,7 @@ from Metagene import Metagene
 from Feature import Feature
 from Read import Read
 
-from metageneMethods import runPipe
+from metageneMethods import run_pipe
 from metageneMethods import read_chunk
 
 PROGRAM = "metagene_count.py"
@@ -54,19 +54,19 @@ UPDATED = "140406 JRBT"
 
 ##TODO: better commandline argument parsing!!! And end user display...    
 def get_arguments():
-    '''Collect and parse information from the user's command line arguments.'''
+    """Collect and parse information from the user's command line arguments."""
     
     date = datetime.datetime.now().strftime('%y%m%d-%H%M%S')
     
     parser = argparse.ArgumentParser(description=
-    '''The first step of metagene_analysis, metagene_count.py compiles read abundance
-over genomic features to create the input for metagene_windows.py. Please 
-see README for full details and examples.
+                                     """The first step of metagene_analysis, metagene_count.py compiles read abundance
+                                     over genomic features to create the input for metagene_windows.py. Please
+                                     see README for full details and examples.
 
-Requires:
-    python 2 (https://www.python.org/downloads/), 
-    samtools (http://sourceforge.net/projects/samtools/files/)
-    ''')
+                                     Requires:
+                                     python 2 (https://www.python.org/downloads/),
+                                     samtools (http://sourceforge.net/projects/samtools/files/)
+                                     """)
 
     parser.add_argument("-v","--version",
                         action = 'version',
@@ -215,7 +215,7 @@ def metagene_count():
                 # pull out sam file lines; it is important to use Feature.get_samtools_region(chromosome_lengths) rather
                 # than Feature.get_chromosome_region() because only the first ensures that the interval does not
                 # extend beyond the length of the chromosome which makes samtools view return no reads
-                (runPipe_worked, sam_sample) = runPipe(['samtools view {} {}'.format(
+                (runPipe_worked, sam_sample) = run_pipe(['samtools view {} {}'.format(
                         arguments.alignment,
                         feature.get_samtools_region())])
                 if runPipe_worked:

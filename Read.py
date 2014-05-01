@@ -1,5 +1,5 @@
 #!/usr/bin/python
-'''Read class for metagene_counts.py.
+"""Read class for metagene_counts.py.
 
 Requires:
     python 2 (https://www.python.org/downloads/)
@@ -26,14 +26,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-'''
+"""
 
 import re
 import subprocess
 
 from MetageneError import MetageneError
 from metageneMethods import confirm_integer
-from metageneMethods import runPipe
+from metageneMethods import run_pipe
 
 ##TODO: add support for different alignment times (eg. bigwig or bigbed?)
 class Read():
@@ -326,7 +326,7 @@ class Read():
         bamfile_name -- file to query for tag
         tag_regex -- regular expression for the tag (eg 'NA:i:(\d+)')
         """
-        (runPipe_worked, sam_sample) = runPipe(['samtools view {}'.format(bamfile_name), 'head -n 10'])
+        (runPipe_worked, sam_sample) = run_pipe(['samtools view {}'.format(bamfile_name), 'head -n 10'])
         if runPipe_worked:
             return cls.process_set_sam_tag(sam_sample, count_tag, tag_regex)   
         else:
@@ -356,7 +356,7 @@ class Read():
         Keyword Arguments:
         bamfile -- name of bamfile
         """
-        (runPipe_worked, header) = runPipe(["samtools view -H {}".format(bamfile)])
+        (runPipe_worked, header) = run_pipe(["samtools view -H {}".format(bamfile)])
         if not runPipe_worked:
             raise MetageneError("Could not open BAM file {}".format(bamfile))
         else:
@@ -375,3 +375,6 @@ class Read():
             raise MetageneError("Could not extract any reference sequence (@SQ) lines from header for {} file".format(bamfile))
         return True
 # end of Read class
+
+def test():
+    read = Read("chr1", "+", )

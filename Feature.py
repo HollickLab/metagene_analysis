@@ -1,5 +1,5 @@
 #!/usr/bin/python
-'''Feature class for metagene_counts.py.
+"""Feature class for metagene_counts.py.
 Child of Metagene class.
 
 Requires:
@@ -27,7 +27,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-'''
+"""
+
 import re
 import math
 
@@ -36,10 +37,11 @@ from MetageneError import MetageneError
 from Read import Read
 
 from metageneMethods import confirm_integer
-from metageneMethods import runPipe
+from metageneMethods import run_pipe
+
 
 class Feature(Metagene):
-    '''A Feature is a Metagene object representing an interval of interest  
+    """A Feature is a Metagene object representing an interval of interest
     with padding on either side, where the positions are defined by chromosomal
     (nucleotide) positions.  
     
@@ -92,7 +94,7 @@ class Feature(Metagene):
         create_from_bed(count_method, metagene_object, feature_line, chromosome_conversion_table, short=False)
         create_from_gff(count_method, metagene_object, feature_line, chromosome_conversion_table)
 
-        '''
+    """
 
     __slots__ = ['name', 'chromosome', 'strand', 'metagene_length','counts_array', 'position_array']
     # inherits feature_interval, padding, and length from Metagene
@@ -101,8 +103,17 @@ class Feature(Metagene):
     previously_warned_start_bigger_than_end = False
     chromosome_conversion = {}
     
-    def __init__(self, count_method, metagene_object, name, chromosome, start, end, strand, gap_counting=False, ignore_strand=False):
-        '''Not normally called directly; use Feature.create(file_format, count_method, 
+    def __init__(self,
+                 count_method,
+                 metagene_object,
+                 name,
+                 chromosome,
+                 start,
+                 end,
+                 strand,
+                 gap_counting=False,
+                 ignore_strand=False):
+        """Not normally called directly; use Feature.create(file_format, count_method,
         metagene_object, feature_line, chromosome_conversion_table) to call indirectly.
         
         Define a new feature with an interval (represents feature length), 
@@ -111,8 +122,9 @@ class Feature(Metagene):
         
         Once defined here, the start and end represent the true start and end of
         the feature.  Therefore, if a - strand (Crick strand) feature the start
-        will be larger than the end.''' 
-        chromosome = Feature.chromosome_conversion[chromosome] # convert to BAM-like chromosome designation
+        will be larger than the end.
+        """
+        chromosome = Feature.chromosome_conversion[chromosome]  # convert to BAM-like chromosome designation
         if (confirm_integer(start, "Start", minimum=1, maximum=Read.chromosome_sizes[chromosome]) and 
                 confirm_integer(end, "End", minimum=1, maximum=Read.chromosome_sizes[chromosome])):
            start = int(start)
@@ -121,11 +133,11 @@ class Feature(Metagene):
         # Define feature-specific metagene where feature_interval respresents 
         # the length of the feature NOT the length of the final metagene interval
         if count_method == 'all':
-            interval = (end - start + 1) # length of feature
+            interval = (end - start + 1)  # length of feature
         else:
-            interval = 1 # length of the start (or end) of feature
+            interval = 1  # length of the start (or end) of feature
             
-        Metagene.__init__(self,interval, metagene_object.padding['Upstream'], metagene_object.padding['Downstream'])
+        Metagene.__init__(self, interval, metagene_object.padding['Upstream'], metagene_object.padding['Downstream'])
         self.name = name
         self.chromosome = chromosome  
         self.strand = strand
@@ -154,10 +166,10 @@ class Feature(Metagene):
         self.counts_array = {}
         for o in orientation:
             for g in gap_counts:
-                self.counts_array["{}:{}".format(o,g)] = []
+                self.counts_array["{}:{}".format(o, g)] = []
                 for p in range(self.length):
                     #self.counts_array["{}:{}".format(o,g)].append(decimal.Decimal(0.0))
-                    self.counts_array["{}:{}".format(o,g)].append(0)
+                    self.counts_array["{}:{}".format(o, g)].append(0)
                     
         # define position_array
         # values  : chromosomal 1-based nucleotide positions in 5' to 3' 
@@ -175,9 +187,9 @@ class Feature(Metagene):
                 start = end 
             elif count_method == 'end':
                 end = start
-            region_start = start - self.padding['Downstream'] # start is really end
-            region_end = end + self.padding['Upstream'] # end is really start
-            positions = range(region_start, region_end + 1) # inclusive list
+            region_start = start - self.padding['Downstream']  # start is really end
+            region_end = end + self.padding['Upstream']  # end is really start
+            positions = range(region_start, region_end + 1)  # inclusive list
             positions.reverse()
         else:
             if count_method == 'start':
@@ -186,18 +198,18 @@ class Feature(Metagene):
                 start = end # set both start and end to the end value
             region_start = start - self.padding['Upstream'] 
             region_end = end + self.padding['Downstream'] 
-            positions = range(region_start, region_end + 1) # inclusive list
+            positions = range(region_start, region_end + 1)  # inclusive list
         
         self.position_array = positions            
     # end Feature.__init__ function
             
     
     def __str__(self, counts_only=False):
-        '''Returns pretty graphic of feature information and current counts.'''
+        """Returns pretty graphic of feature information and current counts."""
         output = ""
 
         # skip if counts_only option is enabled
-        if not(counts_only):
+        if not counts_only:
             output += "{} at {} on {} strand\n".format(self.name, self.get_chromosome_region(), self.strand)
         
         # create up(stream), int(erval) and down(stream) labels for each position
@@ -224,22 +236,21 @@ class Feature(Metagene):
             output = output[:-1] + "\n"
         return output
     # end of Feature.__str__ function            
-                    
-    
+
     def get_chromosome_region(self):
-        '''Return position interval for samtools view (chromosome: start-end (1-based))'''
+        """Return position interval for samtools view (chromosome: start-end (1-based))"""
         if self.strand == "-":
             # order from smaller to larger chromosome position
-            return ("{}:{}-{}".format(self.chromosome, self.position_array[-1], self.position_array[0]))
+            return "{}:{}-{}".format(self.chromosome, self.position_array[-1], self.position_array[0])
         else:
-            return ("{}:{}-{}".format(self.chromosome, self.position_array[0], self.position_array[-1]))
-    
-    
+            return "{}:{}-{}".format(self.chromosome, self.position_array[0], self.position_array[-1])
+
     def get_samtools_region(self, chromosome_lengths_dictionary=Read.chromosome_sizes):
-        '''Return a position interval valid for use in samtools view program.
+        """Return a position interval valid for use in samtools view program.
         
         Same as get_chromosome_region(), but adjust start to 0 and 
-        end to chromosome length if they exceed chromosome boundaries.'''
+        end to chromosome length if they exceed chromosome boundaries.
+        """
         
         if self.strand == "-":
             start = self.position_array[-1]
@@ -256,15 +267,15 @@ class Feature(Metagene):
         except:
             raise MetageneError("Could not find chromosome {} in length dictionary".format(self.chromosome))
         
-        return ("{}:{}-{}".format(self.chromosome, start, end))
+        return "{}:{}-{}".format(self.chromosome, start, end)
     # end of Feature.get_samtools_region function    
-    
-    
+
     def print_metagene(self, pretty=False, header=False, interval_override=False):
-        '''Converts counts_array data to finalized metagene profiles for printing
+        """Converts counts_array data to finalized metagene profiles for printing
         
         Standard printing is in comma-delimited lines for input into metagene_analysis.py
-        Pretty printing (pretty=True) gives a human readable, if potentially super long, version'''
+        Pretty printing (pretty=True) gives a human readable, if potentially super long, version
+        """
         
         final_metagenes = {}
         

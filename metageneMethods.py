@@ -32,8 +32,9 @@ import subprocess
 
 from MetageneError import MetageneError
 
+
 def confirm_integer(value, descriptor, minimum=None, maximum=None):
-    """Confirm integer statust and potentially minimum or maximum bound.  Return boolean.
+    """Confirm integer status and potentially minimum or maximum bound.  Return boolean.
     
     Keyword Arguments:
     value -- value (any type) to test
@@ -66,9 +67,10 @@ def confirm_integer(value, descriptor, minimum=None, maximum=None):
         else:
             raise MetageneError("{} is greater than maximum: {}".format(
                 descriptor, maximum))
-    # end of confirm_integer function
+            # end of confirm_integer function
 
-def runPipe(cmds):
+
+def run_pipe(commands):
     """Run a set of bash commands and return (boolean, array of lines).
     
     runPipe function is from danizgod's post at stackoverflow exchange: 
@@ -76,11 +78,11 @@ def runPipe(cmds):
     
     Usage: runPipe(['ls -1','head -n 2', 'head -n 1'])
     """
-    try: 
-        p = subprocess.Popen(cmds[0].split(' '), stdin = None, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+    try:
+        p = subprocess.Popen(commands[0].split(' '), stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         prev = p
-        for cmd in cmds[1:]:
-            p = subprocess.Popen(cmd.split(' '), stdin = prev.stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        for cmd in commands[1:]:
+            p = subprocess.Popen(cmd.split(' '), stdin=prev.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             prev = p
         stdout, stderr = p.communicate()
         p.wait()
@@ -92,12 +94,14 @@ def runPipe(cmds):
         return (True, stdout.strip().split('\n'))
     else:
         return (False, stderr)
+
+
 # end of runPipe
 
-def read_chunk(file_obj,chunk_size):
-    '''Read in file by chunk_size chunks returning one line at a time.'''
+def read_chunk(open_file_object, chunk_size):
+    """Read in file by chunk_size chunks returning one line at a time."""
     # get first chunk
-    chunk = file_obj.read(chunk_size)
+    chunk = open_file_object.read(chunk_size)
     # continue looping until a chunk is just EOF (empty line)
     while chunk:
         chunk_list = chunk.split("\n")
@@ -105,7 +109,4 @@ def read_chunk(file_obj,chunk_size):
         for c in chunk_list[:-1]:
             yield c
         # add incomplete line to beginning of next chunk read
-        chunk = chunk_list[-1] + file_obj.read(chunk_size)
-    
-    
-    
+        chunk = chunk_list[-1] + open_file_object.read(chunk_size)
