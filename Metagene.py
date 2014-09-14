@@ -36,6 +36,7 @@ import math
 from metageneMethods import confirm_integer
 from MetageneError import MetageneError
 
+
 class Metagene(object):
     """Create a metagene composed of a padded interval of interest.
     
@@ -55,13 +56,13 @@ class Metagene(object):
         print_full -- Return metagene positions relative to interval start. 
                       (instead of default summary)
     """
-    
-##TODO: add functionality for the start and end of feature_interval to be constant and internal interval to vary
-##TODO: add functionality for negative paddings!!
-    
+
+    ##TODO: add functionality for the start and end of feature_interval to be constant and internal interval to vary
+    ##TODO: add functionality for negative paddings!!
+
     # restrict attributes for each instance
-    __slots__ = ['feature_interval','padding', 'length']
-        
+    __slots__ = ['feature_interval', 'padding', 'length']
+
     def __init__(self, interval=1, padding_upstream=0, padding_downstream=0):
         """Return metagene instance defined by interval and padding sizes.
         
@@ -72,18 +73,20 @@ class Metagene(object):
         """
         if confirm_integer(interval, "Interval", minimum=1):
             self.feature_interval = int(interval)
-        self.padding = {'Upstream':None, 'Downstream':None}
+        self.padding = {'Upstream': None, 'Downstream': None}
         if confirm_integer(padding_upstream, "Upstream padding", minimum=0):
             self.padding['Upstream'] = int(padding_upstream)
         if confirm_integer(padding_downstream, "Downstream padding", minimum=0):
             self.padding['Downstream'] = int(padding_downstream)
         self.length = (self.padding['Upstream'] +
-                       self.feature_interval + 
-                       self.padding['Downstream']) 
-    # end __init__ function
-    
+                       self.feature_interval +
+                       self.padding['Downstream'])
+        # end __init__ function
+
     def __str__(self):
-        return "Upstream:{} -- Interval:{} -- Downstream:{}\tLength:{}".format(self.padding['Upstream'], self.feature_interval, self.padding['Downstream'], self.length)
+        return "Upstream:{} -- Interval:{} -- Downstream:{}\tLength:{}".format(self.padding['Upstream'],
+                                                                               self.feature_interval,
+                                                                               self.padding['Downstream'], self.length)
 
     def print_full(self, pretty=False):
         """Return metagene positions relative to interval start as 0.
@@ -94,7 +97,7 @@ class Metagene(object):
         output = ""
         # add metagene schematic and position numbers 
         # (relative to feature start as zero)
-        if pretty: 
+        if pretty:
             # ---up---int--down- labeling
             output += "{0:15s}\t\t".format('Metagene')
             for i in range(self.padding['Upstream']):
@@ -104,28 +107,29 @@ class Metagene(object):
             for i in range(self.padding['Downstream']):
                 output += "-down-"
             output += "\n"
-            
+
             # ---up---int--down-  
             #    -1     0     1   relative position labeling
             output += "{0:15s}:\t".format('Position')
             for i in range(self.padding['Upstream'], 0, -1):
-                output += "{0:5d},".format(0-i)
+                output += "{0:5d},".format(0 - i)
             for i in range(self.feature_interval):
                 output += "{0:5d},".format(i)
             for i in range(self.padding['Downstream']):
-                output+= "{0:5d},".format(i + self.feature_interval)
+                output += "{0:5d},".format(i + self.feature_interval)
             output = output[:-1] + "\n"
-        
+
         else:
             # comma-delimited position output
             # suitable header for metagene_bin.py input files
-            output += "{},{}".format('Feature','Orientation:Gap')
+            output += "{},{}".format('Feature', 'Orientation:Gap')
             for i in range(self.padding['Upstream'], 0, -1):
-                output += ",{}".format(0-i)
+                output += ",{}".format(0 - i)
             for i in range(self.feature_interval):
                 output += ",{}".format(i)
             for i in range(self.padding['Downstream']):
-                output+= ",{}".format(i + self.feature_interval)
+                output += ",{}".format(i + self.feature_interval)
             output += "\n"
         return output
+
 # end Metagene class

@@ -35,62 +35,64 @@ import subprocess
 import re
 import datetime
 import os
-import argparse		# to parse the command line arguments
+import argparse  # to parse the command line arguments
 
 PROGRAM = "metagene_plot_with_statistics.py"
 VERSION = "0.1.0"
 UPDATED = "140406 JRBT"
 
+
 def get_arguments():
     '''Collect and parse information from the user's command line arguments.'''
-    
+
     date = datetime.datetime.now().strftime('%y%m%d-%H%M%S')
-    
+
     parser = argparse.ArgumentParser(description=
-    '''The third step of metagene_analysis, metagene_plot.py uses R to create the
-metagene plot (as a PDF) and its associated statistics.
-Please see README for full details and examples.
+                                     '''The third step of metagene_analysis, metagene_plot.py uses R to create the
+                                 metagene plot (as a PDF) and its associated statistics.
+                                 Please see README for full details and examples.
 
-Requires:
-    python 2 (https://www.python.org/downloads/)
-    R (http://cran.us.r-project.org/)
-    ''')
+                                 Requires:
+                                     python 2 (https://www.python.org/downloads/)
+                                     R (http://cran.us.r-project.org/)
+                                     ''')
 
-    parser.add_argument("-v","--version",
-                        action = 'version',
-                        version = "{} {}\tUpdated {}".format(PROGRAM, VERSION, UPDATED))
-    parser.add_argument("-a","--fileset_a",
-                        help = "Bin files from metagene_bin.py",
-                        metavar = 'BIN_FILE',
-                        required = True,
-                        action = 'append')
-    parser.add_argument("-b","--fileset_b",
-                        help = "Bin file from metagene_bin.py",
-                        metavar = 'BIN_FILE',
-                        required = True,
-                        action = 'append')                   
+    parser.add_argument("-v", "--version",
+                        action='version',
+                        version="{} {}\tUpdated {}".format(PROGRAM, VERSION, UPDATED))
+    parser.add_argument("-a", "--fileset_a",
+                        help="Bin files from metagene_bin.py",
+                        metavar='BIN_FILE',
+                        required=True,
+                        action='append')
+    parser.add_argument("-b", "--fileset_b",
+                        help="Bin file from metagene_bin.py",
+                        metavar='BIN_FILE',
+                        required=True,
+                        action='append')
     parser.add_argument("-o", "--output_prefix",
-                        help = "Prefix for output files",
-                        required = True)
-    
+                        help="Prefix for output files",
+                        required=True)
+
     parser.add_argument("--normalization_a",
-                        help = "Normalization value for file_a; eg total reads would result in reads per million",
-                        type = int)
+                        help="Normalization value for file_a; eg total reads would result in reads per million",
+                        type=int)
     parser.add_argument("--normalization_b",
-                        help = "Normalization value for file_b; eg total reads would result in reads per million",
-                        type = int) 
-                                          
+                        help="Normalization value for file_b; eg total reads would result in reads per million",
+                        type=int)
+
     parser.add_argument("--feature_counted",
-                        help = "Name of feature examined, eg TSS, gene, intron",
-                        required = True)
+                        help="Name of feature examined, eg TSS, gene, intron",
+                        required=True)
 
     arguments = parser.parse_args()
-       
+
     return arguments
-    
+
+
 if __name__ == "__main__":
     arguments = get_arguments()
-    
+
     try:
         parsed_file_a1 = re.findall('.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.fileset_a[0])[0]
         parsed_file_a2 = re.findall('.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.fileset_a[1])[0]
@@ -98,7 +100,7 @@ if __name__ == "__main__":
         parsed_file_b2 = re.findall('.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.fileset_b[1])[0]
     except IndexError as err:
         raise MetageneError(err, "You must specify two files for each group -a and -b")
-    
+
     # extract metagene information from first file
     with open(arguments.fileset_a[0]) as inf:
         metagene = re.split('[\s-]+', inf.readline().strip())
@@ -113,30 +115,30 @@ if __name__ == "__main__":
         interval_end = metagene_parts['Interval'] - 1
         downstream_start = metagene_parts['Interval']
         downstream_end = metagene_parts['Interval'] + metagene_parts['Downstream'] - 1
-        
+
     window_size = int(parsed_file_a1[0])
     step_size = int(parsed_file_a1[1])
-    
+
     path_to_script = os.path.dirname(os.path.realpath(__file__))
 
     path_to_script += "/multiple_t_test.R"
-    subprocess.call(['Rscript', 
-                     path_to_script, 
-                     str(arguments.fileset_a[0]),     # file.1.sense
-                     str(arguments.fileset_a[1]),     # file.1.antisense
-                     str(arguments.fileset_b[0]),     # file.2.sense
-                     str(arguments.fileset_b[1]),     # file.2.antisense
+    subprocess.call(['Rscript',
+                     path_to_script,
+                     str(arguments.fileset_a[0]),  # file.1.sense
+                     str(arguments.fileset_a[1]),  # file.1.antisense
+                     str(arguments.fileset_b[0]),  # file.2.sense
+                     str(arguments.fileset_b[1]),  # file.2.antisense
                      str(arguments.normalization_a),  # normalization.1
                      str(arguments.normalization_b),  # normalization.2
-                     str(arguments.output_prefix),    # output.prefix
-                     str(window_size),                # window.size
-                     str(step_size),                  # window.step
+                     str(arguments.output_prefix),  # output.prefix
+                     str(window_size),  # window.size
+                     str(step_size),  # window.step
                      str(arguments.feature_counted),  # feature.name
                      str(upstream_start),
                      str(upstream_end),
                      str(interval_start),
                      str(interval_end),
                      str(downstream_start),
-                     str(downstream_end)]) 
-    
+                     str(downstream_end)])
+
     print "Finished plotting"

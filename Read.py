@@ -35,8 +35,9 @@ from MetageneError import MetageneError
 from metageneMethods import confirm_integer
 from metageneMethods import run_pipe
 
+
 ##TODO: add support for different alignment times (eg. bigwig or bigbed?)
-class Read():
+class Read(object):
     """Create a read represented by a list of chromosomal positions.
     
     Class Attributes:
@@ -71,27 +72,27 @@ class Read():
         set_sam_tag -- add key:value pairs to has_sam_tag class dictionary 
         set_chromosome_sizes -- create dictionary of chromosome sizes
     """
-    
-    __slots__ = ['chromosome','strand','position_array','abundance','mappings']
-    
+
+    __slots__ = ['chromosome', 'strand', 'position_array', 'abundance', 'mappings']
+
     chromosome_sizes = {}
-    
+
     # Keeps track of presence/absence of certain SAM file tags 
     # (defined by get_sam_tag classmethod)
     # Key = two-letter code; value = boolean
     has_sam_tag = {}
-    
+
     # How to count[0] and advance[1] chromosome position by CIGAR code
-    cigar_codes = { 'M':(True, True),  # alignment match (can be either sequence match or mismatch)
-                    'I':(False, False), # insertion to the reference
-                    'D':(False, True), # deletion from the reference
-                    'N':(False, True), # skipped region from the reference
-                    'S':(False, False), # soft clipping (clipped sequences present in SEQ)
-                    'H':(False, False), # hard clipping (clipped sequences NOT present in SEQ)
-                    'P':(False, True), # padding (silent deletion from padded reference)
-                    '=':(True, True),  # sequence match
-                    'X':(True, True) } # sequence mismatch  
-    
+    cigar_codes = {'M': (True, True),  # alignment match (can be either sequence match or mismatch)
+                   'I': (False, False),  # insertion to the reference
+                   'D': (False, True),  # deletion from the reference
+                   'N': (False, True),  # skipped region from the reference
+                   'S': (False, False),  # soft clipping (clipped sequences present in SEQ)
+                   'H': (False, False),  # hard clipping (clipped sequences NOT present in SEQ)
+                   'P': (False, True),  # padding (silent deletion from padded reference)
+                   '=': (True, True),  # sequence match
+                   'X': (True, True)}  # sequence mismatch
+
     def __init__(self, chromosome, strand, abundance, mappings, positions):
         """Create read object. Invoke with a constructor rather than directly.
         
@@ -106,33 +107,39 @@ class Read():
             self.strand = "."
         else:
             self.strand = strand
-        
+
         if self.strand == "-":
             positions.reverse()
         self.position_array = positions
-        
+
         if confirm_integer(abundance, "Abundance", minimum=1):
             self.abundance = int(abundance)
-        
+
         if mappings == "Unknown":
             self.mappings = 1
         elif confirm_integer(mappings, "Alignments", minimum=1):
             self.mappings = int(mappings)
-    # End of __init__
-    
+
     def __str__(self):
-        return "Read at {0}:{1}-{2} on {3} strand; counts for {4:2.3f}:\t\t{5}".format(self.chromosome, self.position_array[0], self.position_array[-1], self.strand, float(self.abundance)/self.mappings, str(self.position_array))
-    
+        return "Read at {0}:{1}-{2} on {3} strand; counts for {4:2.3f}:\t\t{5}".format(
+            self.chromosome,
+            self.position_array[0],  # Start 1-based
+            self.position_array[-1],  # End 1-based
+            self.strand,
+            float(self.abundance) / self.mappings,
+            str(self.position_array))
+
     @classmethod
-    def create_from_sam(cls, sam_line, 
-                             chromosomes_to_process, 
-                             count_method, 
-                             unique=False,
-                             ignore_strand=False,
-                             count_secondary_alignments=True,
-                             count_failed_quality_control=False,
-                             count_PCR_optical_duplicate=False,
-                             count_supplementary_alignment=True):
+    def create_from_sam(cls,
+                        sam_line,
+                        chromosomes_to_process,
+                        count_method,
+                        unique=False,
+                        ignore_strand=False,
+                        count_secondary_alignments=True,
+                        count_failed_quality_control=False,
+                        count_PCR_optical_duplicate=False,
+                        count_supplementary_alignment=True):
         """Create a Read object from a BAM or SAM line.
         
         Keyword Arguments:
@@ -145,7 +152,7 @@ class Read():
         count_PCR_optical_duplicate -- process PCR/optical duplicate reads (default False)
         count_supplementary_alignment -- process supplementary alignment reads (default True)
         """
-        sam_parts = sam_line.split("\t")      
+        sam_parts = sam_line.split("\t")
         if count_method == 'start':
             count_only_start = True
             count_only_end = False
@@ -156,31 +163,31 @@ class Read():
             count_only_start = False
             count_only_end = False
         # parse bitwise flag
-        (countable, reverse_complement) = Read.parse_sam_bitwise_flag(int(sam_parts[1]), 
-                                                                      count_secondary_alignments, 
+        (countable, reverse_complement) = Read.parse_sam_bitwise_flag(int(sam_parts[1]),
+                                                                      count_secondary_alignments,
                                                                       count_failed_quality_control,
                                                                       count_PCR_optical_duplicate,
                                                                       count_supplementary_alignment,
                                                                       count_only_start,
                                                                       count_only_end)
-        if countable and sam_parts[2] in chromosomes_to_process: 
+        if countable and sam_parts[2] in chromosomes_to_process:
             # assign chromosome
             chromosome = sam_parts[2]
             # assign mappings
             if unique:
                 mappings = 1
             # try to extract mappings from NH:i:## tag
-            elif 'NH' in cls.has_sam_tag and cls.has_sam_tag['NH']: 
+            elif 'NH' in cls.has_sam_tag and cls.has_sam_tag['NH']:
                 try:
                     mappings = int(re.search('NH:i:(\d+)', sam_line).group(1))
                 except AttributeError:
                     raise MetageneError("Could not determine number of mappings")
             else:
                 mappings = "Unknown"
-           
+
             # assign abundance either from NA:i:## tag or as 1 (default)
             if 'NA' in cls.has_sam_tag and cls.has_sam_tag['NA']:
-                try: 
+                try:
                     abundance = int(re.search('NA:i:(\d+)', sam_line).group(1))
                 except AttributeError:
                     raise MetageneError("Could not extract the abundance tag")
@@ -190,27 +197,29 @@ class Read():
             if ignore_strand:
                 strand = "."
             else:
-                if reverse_complement: # Crick or Minus strand
-                    strand = "-" 
-                else: # Watson or Plus strand
-                    strand = "+"  
-        
-            # create genomic positions for read (start, cigar_string, sequence)
+                if reverse_complement:  # Crick or Minus strand
+                    strand = "-"
+                else:  # Watson or Plus strand
+                    strand = "+"
+
+                    # create genomic positions for read (start, cigar_string, sequence)
             positions = Read.build_positions(int(sam_parts[3]), sam_parts[5], sam_parts[9])
-        
+
             return (countable, Read(chromosome, strand, abundance, mappings, positions))
         else:
             return (False, "Non-aligning read")
+
     # end of create_from_sam
-    
+
     @classmethod
-    def parse_sam_bitwise_flag(cls, flags, 
-                                    count_secondary_alignments=True, 
-                                    count_failed_quality_control=False,
-                                    count_PCR_optical_duplicate=False,
-                                    count_supplementary_alignments=True,
-                                    count_only_start=False,
-                                    count_only_end=False):
+    def parse_sam_bitwise_flag(cls,
+                               flags,
+                               count_secondary_alignments=True,
+                               count_failed_quality_control=False,
+                               count_PCR_optical_duplicate=False,
+                               count_supplementary_alignments=True,
+                               count_only_start=False,
+                               count_only_end=False):
         """Parse bitwise flag and return (countable, reverse_complemented) booleans.
         
         Keyword Arguments:
@@ -240,7 +249,7 @@ class Read():
         0x200     0010 0000 0000  not passing quality controls         
         0x400     0100 0000 0000  PCR or optical duplicate              
         0x800     1000 0000 0000  supplementary alignment               
-        """        
+        """
         # make sure that only one of count_only_start or count_only_end is true
         if count_only_start and count_only_end:
             raise MetageneError("You can not count only the start and only the end, choose one or neither")
@@ -248,39 +257,39 @@ class Read():
             reverse_complement = False
         else:
             reverse_complement = True
-            
+
         # Is the read countable?
         # Does it map? 
-        if (flags & 0x4) == 0x4: # flag is set and read is unmapped
-            return (False,reverse_complement)
+        if (flags & 0x4) == 0x4:  # flag is set and read is unmapped
+            return (False, reverse_complement)
         # Is it a secondary alignment and do we care?
         elif (flags & 0x100) == 0x100 and not count_secondary_alignments:
-            return (False,reverse_complement)  
+            return (False, reverse_complement)
         # Did it fail the quality control and do we care?
         elif (flags & 0x200) == 0x200 and not count_failed_quality_control:
-            return (False,reverse_complement) 
+            return (False, reverse_complement)
         # Is it a PCR or optical duplicate and do we care?
         elif (flags & 0x400) == 0x400 and not count_PCR_optical_duplicate:
-            return (False,reverse_complement)
+            return (False, reverse_complement)
         # Is it a supplementary alignment and do we care?
         elif (flags & 0x800) == 0x800 and not count_supplementary_alignments:
-            return (False,reverse_complement)
+            return (False, reverse_complement)
         # Do we care about counting only the start or end? and does it matter (because part of a multi-segment template)?
         elif (count_only_start or count_only_end) and (flags & 0x1) == 0x1:
             # Do we care about the start and does this segment contain the start?
             if count_only_start and (flags & 0x40) == 0x40:
-                return (True,reverse_complement)
+                return (True, reverse_complement)
             # Do we care about the end and does this segment contain the end?
             elif count_only_end and (flags & 0x80) == 0x80:
-                return (True,reverse_complement)
+                return (True, reverse_complement)
             else:
-                return (False,reverse_complement)
+                return (False, reverse_complement)
         else:
             # Made it through everything that could negate counting the read, so count it!     
             return (True, reverse_complement)
 
     @classmethod
-    def build_positions(cls, start, cigar, seq):    
+    def build_positions(cls, start, cigar, seq):
         """Return array of 1-based positions ordered relative to the chromosome.
         
         Keyword Arguments:
@@ -301,8 +310,8 @@ class Read():
                 raise MetageneError("Unable to determine alignment length")
 
         # separate CIGAR string into nucleotide counts and CIGAR codes
-        nucleotides = re.findall('(\d+)',cigar)
-        codes = re.split('\d+',cigar)[1:]
+        nucleotides = re.findall('(\d+)', cigar)
+        codes = re.split('\d+', cigar)[1:]
         # loop through nucleotide values
         for i in range(len(nucleotides)):
             # iterate nt times adding 1 to start each time
@@ -314,8 +323,8 @@ class Read():
                     raise MetageneError("Incorrect CIGAR string")
                 if cls.cigar_codes[codes[i]][1]:
                     position += 1
-        return array  
-    # end of build_positions
+        return array
+        # end of build_positions
 
     @classmethod
     def set_sam_tag(cls, count_tag, bamfile_name, tag_regex):
@@ -326,11 +335,11 @@ class Read():
         bamfile_name -- file to query for tag
         tag_regex -- regular expression for the tag (eg 'NA:i:(\d+)')
         """
-        (runPipe_worked, sam_sample) = run_pipe(['samtools view {}'.format(bamfile_name), 'head -n 10'])
-        if runPipe_worked:
-            return cls.process_set_sam_tag(sam_sample, count_tag, tag_regex)   
+        (run_pipe_worked, sam_sample) = run_pipe(['samtools view {}'.format(bamfile_name), 'head -n 10'])
+        if run_pipe_worked:
+            return cls.process_set_sam_tag(sam_sample, count_tag, tag_regex)
         else:
-            raise MetageneError("Checking the bam file failed with error: {}".format(sam_sample))  
+            raise MetageneError("Checking the bam file failed with error: {}".format(sam_sample))
 
     @classmethod
     def process_set_sam_tag(cls, sample, count_tag, tag_regex):
@@ -338,7 +347,7 @@ class Read():
         tag = tag_regex.split(":")[0]
         num_tags = 0
         for sam_line in sample:
-            if re.search(tag_regex,sam_line) != None:
+            if re.search(tag_regex, sam_line) is not None:
                 num_tags += 1
         if num_tags == 10:
             has_sam_value = True
@@ -356,14 +365,17 @@ class Read():
         Keyword Arguments:
         bamfile -- name of bamfile
         """
-        (runPipe_worked, header) = run_pipe(["samtools view -H {}".format(bamfile)])
-        if not runPipe_worked:
+        (run_pipe_worked, header) = run_pipe(["samtools view -H {}".format(bamfile)])
+        if not run_pipe_worked:
             raise MetageneError("Could not open BAM file {}".format(bamfile))
         else:
-            return cls.process_set_chromosome_sizes(header)
-    
+            try:
+                return cls.extract_chromosome_sizes(header)
+            except MetageneError as err:
+                raise MetageneError("Error processing {} header\n{}".format(bamfile, err.message))
+
     @classmethod
-    def process_set_chromosome_sizes(cls, header):
+    def extract_chromosome_sizes(cls, header):
         """Process header from set_chromosome_sizes. (Separate file handling from processing.)"""
         for line in header:
             if line[0:3] == "@SQ":
@@ -372,9 +384,6 @@ class Read():
                 size = int(re.findall('LN:(\d+)', line)[0])
                 cls.chromosome_sizes[name] = size
         if len(cls.chromosome_sizes.keys()) == 0:
-            raise MetageneError("Could not extract any reference sequence (@SQ) lines from header for {} file".format(bamfile))
+            raise MetageneError("Could not extract any reference sequence (@SQ) lines from header")
         return True
-# end of Read class
-
-def test():
-    read = Read("chr1", "+", )
+        # end of Read class

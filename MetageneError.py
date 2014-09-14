@@ -30,8 +30,9 @@ THE SOFTWARE.
 ##TODO: add more detail to MetageneErrors (maybe subclasses of error types...)
 class MetageneError(Exception):
     """Create metagene analysis errors."""
+
     def __init__(self, message):
         self.message = message
-    
+
     def __str__(self):
         return "MetageneError: {}".format(self.message)

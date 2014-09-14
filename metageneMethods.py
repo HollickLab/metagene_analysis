@@ -59,14 +59,14 @@ def confirm_integer(value, descriptor, minimum=None, maximum=None):
         return True
     else:
         if not above_minimum and not below_maximum:
-            raise MetageneError("{} is outside of boundaries: {}-{}".format(
-                descriptor, minimum, maximum))
+            raise MetageneError("{} is outside of boundaries: {}-{}\nValue: {}".format(
+                descriptor, minimum, maximum, value))
         elif not above_minimum:
-            raise MetageneError("{} is less than minimum: {}".format(
-                descriptor, minimum))
+            raise MetageneError("{} is less than minimum: {}\nValue: {}".format(
+                descriptor, minimum, value))
         else:
-            raise MetageneError("{} is greater than maximum: {}".format(
-                descriptor, maximum))
+            raise MetageneError("{} is greater than maximum: {}\nValue: {}".format(
+                descriptor, maximum, value))
             # end of confirm_integer function
 
 

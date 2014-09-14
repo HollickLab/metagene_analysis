@@ -65,13 +65,13 @@ multi.t.test <- function (file.1.sense,
     windows.2.antisense$Window <- factor(windows.2.antisense$Window)
 
     # create summary file for plots
-    windows.sum <- aggregate(windows.1.sense$Abundance, by=list(windows.1.sense$Window), FUN=sum)
+    windows.sum <- aggregate(windows.1.sense$Abundance, by=list(windows.1.sense$Window), FUN=mean)
     names(windows.sum) <- c("Window", "windows.1.sense")
     
-    windows.sum$windows.2.sense <- aggregate(windows.2.sense$Abundance, by=list(windows.2.sense$Window), FUN=sum)$x
+    windows.sum$windows.2.sense <- aggregate(windows.2.sense$Abundance, by=list(windows.2.sense$Window), FUN=mean)$x
     # make the antisense negative to invert the axes...
-    windows.sum$windows.1.antisense <- -(aggregate(windows.1.antisense$Abundance, by=list(windows.1.antisense$Window), FUN=sum)$x)
-    windows.sum$windows.2.antisense <- -(aggregate(windows.2.antisense$Abundance, by=list(windows.2.antisense$Window), FUN=sum)$x)
+    windows.sum$windows.1.antisense <- -(aggregate(windows.1.antisense$Abundance, by=list(windows.1.antisense$Window), FUN=mean)$x)
+    windows.sum$windows.2.antisense <- -(aggregate(windows.2.antisense$Abundance, by=list(windows.2.antisense$Window), FUN=mean)$x)
     
     # remove factoring from windows
     windows.sum$Window <- 0:(total.windows - 1) # keep in parentheses for order of operations!!
@@ -84,9 +84,11 @@ multi.t.test <- function (file.1.sense,
     windows.sum[,c("windows.2.sense","windows.2.antisense")] <- (windows.sum[,c("windows.2.sense","windows.2.antisense")] / normalization.2) * million
     
     # Define min and max positions for the plot - scale up to nearest 250
-    max.yaxis <- ceiling(max(windows.sum[,c("windows.1.sense","windows.2.sense")]) / 250) * 250
-    min.yaxis <- floor(min(windows.sum[,c("windows.1.antisense","windows.2.antisense")]) / 250) * 250
-    
+    #max.yaxis <- ceiling(max(windows.sum[,c("windows.1.sense","windows.2.sense")]) / 250) * 250
+    #min.yaxis <- floor(min(windows.sum[,c("windows.1.antisense","windows.2.antisense")]) / 250) * 250
+    max.yaxis <- (max(windows.sum[,c("windows.1.sense","windows.2.sense")])) * 1.05
+    min.yaxis <- (min(windows.sum[,c("windows.1.antisense","windows.2.antisense")])) * 1.05
+
     # Normalize the raw data in preparation for the t-tests
     windows.1.sense$Abundance <- (windows.1.sense$Abundance / normalization.1) * million
     windows.1.antisense$Abundance <- (windows.1.antisense$Abundance / normalization.1) * million

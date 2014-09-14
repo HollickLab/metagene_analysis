@@ -34,7 +34,7 @@ import re
 import datetime
 import subprocess
 import math
-import argparse		# to parse the command line arguments
+import argparse  # to parse the command line arguments
 
 from MetageneError import MetageneError
 from Metagene import Metagene
@@ -44,50 +44,51 @@ PROGRAM = "metagene_bin.py"
 VERSION = "0.1.2"
 UPDATED = "140406 JRBT"
 
+
 def get_arguments():
     '''Collect and parse information from the user's command line arguments.'''
-    
+
     date = datetime.datetime.now().strftime('%y%m%d-%H%M%S')
-    
+
     parser = argparse.ArgumentParser(description=
-    '''The second step of metagene_analysis, metagene_bin.py compiles read
-abundance over genomic features to create the input for metagene_plot.py.
-Please see README for full details and examples.
+                                     '''The second step of metagene_analysis, metagene_bin.py compiles read
+                                 abundance over genomic features to create the input for metagene_plot.py.
+                                 Please see README for full details and examples.
 
-Requires:
-    python 2 (https://www.python.org/downloads/)
-    ''')
+                                 Requires:
+                                     python 2 (https://www.python.org/downloads/)
+                                     ''')
 
-    parser.add_argument("-v","--version",
-                        action = 'version',
-                        version = "{} {}\tUpdated {}".format(PROGRAM, VERSION, UPDATED))
-    parser.add_argument("-i","--input",
-                        help = "Counts file from metagene_counts.py",
-                        metavar = 'COUNTS_FILE',
-                        required = True,
-                        action = "append")
+    parser.add_argument("-v", "--version",
+                        action='version',
+                        version="{} {}\tUpdated {}".format(PROGRAM, VERSION, UPDATED))
+    parser.add_argument("-i", "--input",
+                        help="Counts file from metagene_counts.py",
+                        metavar='COUNTS_FILE',
+                        required=True,
+                        action="append")
     parser.add_argument("-o", "--output_prefix",
-                        help = "Prefix for output files",
-                        default = "binned")
-    
+                        help="Prefix for output files",
+                        default="binned")
+
     parser.add_argument("--window_size",
-                        help = "Size of windows for binning; default = 10",
-                        type = int,
-                        default = 10)                  
+                        help="Size of windows for binning; default = 10",
+                        type=int,
+                        default=10)
     parser.add_argument("--step_size",
-                        help = "Step size for binning; default = 10",
-                        type = int,
-                        default = 10)
+                        help="Step size for binning; default = 10",
+                        type=int,
+                        default=10)
     parser.add_argument("--separate_groups",
-                        help = "Output orientation and gap types to separate files",
-                        action = "store_true")
-    
+                        help="Output orientation and gap types to separate files",
+                        action="store_true")
+
     return parser.parse_args()
 
+
 def build_output_filenames(infile, prefix, window_size, step_size, separate_groups):
-    
     outfiles = {}
-    
+
     # determine orientation:gap combos
     groups = []
     with open(infile) as inf:
@@ -99,7 +100,7 @@ def build_output_filenames(infile, prefix, window_size, step_size, separate_grou
             line = inf.readline().strip()
             if len(line) == 0: break
             group = line.split(",")[1]
-    
+
     basefile = "{}.{}.{}bpX{}bp".format(prefix, infile[:-4], window_size, step_size)
     if separate_groups:
         for g in groups:
@@ -107,53 +108,57 @@ def build_output_filenames(infile, prefix, window_size, step_size, separate_grou
     else:
         for g in groups:
             outfiles[g] = "{}.all.csv".format(basefile)
-    
+
     return outfiles
+
 
 def metagene_bin():
     '''Main program for metagene_bin.py'''
-   
+
     arguments = get_arguments()
 
     for infile in arguments.input:
         print "Processing file:\t{}".format(infile)
-        
+
         # returns a dict of file names with keys of orientation:gap_counting
-        output_files = build_output_filenames(infile, arguments.output_prefix, arguments.window_size, arguments.step_size, arguments.separate_groups)
-        
+        output_files = build_output_filenames(infile, arguments.output_prefix, arguments.window_size,
+                                              arguments.step_size, arguments.separate_groups)
+
         with open(infile, 'r') as inf:
             metagene = inf.readline()
             for output in output_files.values():
                 with open(output, 'w') as outf:
-                    outf.write(metagene) # needed for plotting
+                    outf.write(metagene)  # needed for plotting
                     outf.write("Gene,Orientation,Gapped,Window,Inclusive_Start,Inclusive_End,Abundance\n")
-            
+
             header = inf.readline().strip().split(",")
-            positions = header[2:] # positions relative to gene start
-            
+            positions = header[2:]  # positions relative to gene start
+
             for counts_line in read_chunk(inf, 1024):
                 counts_parts = counts_line.strip().split(",")
                 counts = counts_parts[2:]
                 length = len(counts)
                 (orientation, gap) = counts_parts[1].split(":")
                 output = "{},{},{}".format(counts_parts[0], orientation, gap)
-                
+
                 window = 0
                 exclusive_end = arguments.window_size
-                
+
                 while exclusive_end <= length:
                     inclusive_start = exclusive_end - arguments.window_size
-                    
+
                     coverage = 0.0
 
                     for i in range(inclusive_start, exclusive_end):
                         coverage += float(counts[i])
-                    
+
                     with open(output_files[counts_parts[1]], 'a') as outf:
-                        outf.write("{},{},{},{},{}\n".format(output,window,positions[inclusive_start], positions[exclusive_end - 1], coverage))
+                        outf.write("{},{},{},{},{}\n".format(output, window, positions[inclusive_start],
+                                                             positions[exclusive_end - 1], coverage))
 
                     window += 1
                     exclusive_end += arguments.step_size
+
 
 if __name__ == "__main__":
     metagene_bin()

@@ -35,65 +35,67 @@ import subprocess
 import re
 import datetime
 import os
-import argparse		# to parse the command line arguments
+import argparse  # to parse the command line arguments
 
 PROGRAM = "metagene_plot_individual.py"
 VERSION = "0.1.0"
 UPDATED = "140406 JRBT"
 
+
 def get_arguments():
     '''Collect and parse information from the user's command line arguments.'''
-    
+
     date = datetime.datetime.now().strftime('%y%m%d-%H%M%S')
-    
+
     parser = argparse.ArgumentParser(description=
-    '''The third step of metagene_analysis, metagene_plot.py uses R to create the
-metagene plot (as a PDF) and its associated statistics.
-Please see README for full details and examples.
+                                     '''The third step of metagene_analysis, metagene_plot.py uses R to create the
+                                 metagene plot (as a PDF) and its associated statistics.
+                                 Please see README for full details and examples.
 
-Requires:
-    python 2 (https://www.python.org/downloads/)
-    R (http://cran.us.r-project.org/)
-    ''')
+                                 Requires:
+                                     python 2 (https://www.python.org/downloads/)
+                                     R (http://cran.us.r-project.org/)
+                                     ''')
 
-    parser.add_argument("-v","--version",
-                        action = 'version',
-                        version = "{} {}\tUpdated {}".format(PROGRAM, VERSION, UPDATED))
-    parser.add_argument("-a","--fileset_a",
-                        help = "Bin files from metagene_bin.py",
-                        metavar = 'BIN_FILE',
-                        required = True,
-                        action = 'append')
-    parser.add_argument("-b","--fileset_b",
-                        help = "Bin file from metagene_bin.py",
-                        metavar = 'BIN_FILE',
-                        required = True,
-                        action = 'append')                   
+    parser.add_argument("-v", "--version",
+                        action='version',
+                        version="{} {}\tUpdated {}".format(PROGRAM, VERSION, UPDATED))
+    parser.add_argument("-a", "--fileset_a",
+                        help="Bin files from metagene_bin.py",
+                        metavar='BIN_FILE',
+                        required=True,
+                        action='append')
+    parser.add_argument("-b", "--fileset_b",
+                        help="Bin file from metagene_bin.py",
+                        metavar='BIN_FILE',
+                        required=True,
+                        action='append')
     parser.add_argument("-o", "--output_prefix",
-                        help = "Prefix for output files",
-                        required = True)
-    
+                        help="Prefix for output files",
+                        required=True)
+
     parser.add_argument("--normalization",
-                        help = "Normalization value for file_a; eg total reads would result in reads per million",
-                        type = int)
-    
+                        help="Normalization value for file_a; eg total reads would result in reads per million",
+                        type=int)
+
     parser.add_argument("--individual_splicing",
-                        help = "Plot gapped vs ungapped reads for a single gene",
-                        action ="store_true")
+                        help="Plot gapped vs ungapped reads for a single gene",
+                        action="store_true")
 
     arguments = parser.parse_args()
-       
+
     return arguments
-    
+
+
 if __name__ == "__main__":
     arguments = get_arguments()
-    
+
     try:
         parsed_file_a = re.findall('.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.fileset_a[0])[0]
         parsed_file_b = re.findall('.(\d+)bpX(\d+)bp.([a-zA-Z]+)_([a-zA-Z]+).csv\Z', arguments.fileset_b[0])[0]
     except IndexError as err:
         raise MetageneError(err, "You must specify two files for each group -a and -b")
-    
+
     # extract metagene information from first file
     with open(arguments.fileset_a[0]) as inf:
         metagene = re.split('[\s-]+', inf.readline().strip())
@@ -108,18 +110,17 @@ if __name__ == "__main__":
         interval_end = metagene_parts['Interval'] - 1
         downstream_start = metagene_parts['Interval']
         downstream_end = metagene_parts['Interval'] + metagene_parts['Downstream'] - 1
-        
+
     path_to_script = os.path.dirname(os.path.realpath(__file__))
 
     if arguments.individual_splicing:
         path_to_script += "/plot_splicing_individual.R"
-        subprocess.call(['Rscript', 
-                     path_to_script, 
-                     str(arguments.fileset_a[0]),     # gapped.file
-                     str(arguments.fileset_b[0]),     # ungapped.file
-                     str(arguments.normalization), # normalization
-                     str(downstream_start),        # gene.length
-                     str(arguments.output_prefix)])# output.prefix
-                     
-   
+        subprocess.call(['Rscript',
+                         path_to_script,
+                         str(arguments.fileset_a[0]),  # gapped.file
+                         str(arguments.fileset_b[0]),  # ungapped.file
+                         str(arguments.normalization),  # normalization
+                         str(downstream_start),  # gene.length
+                         str(arguments.output_prefix)])  # output.prefix
+
     print "Finished plotting"
